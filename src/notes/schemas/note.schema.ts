@@ -10,13 +10,19 @@ export class Note {
         required: true,
         index: true,
     })
-    memeberId: number;
+    memberId: number;
 
     @Prop({
         type: String,
-        required: true,
+        required: false,
     })
-    memeberAccount: string;
+    memberAccount: string;
+
+    @Prop({
+        type: String,
+        required: false,
+    })
+    pcName: string;
 
     @Prop({
         type: String,
@@ -32,6 +38,12 @@ export class Note {
         index: true,
     })
     isActive: boolean;
+
+    @Prop()
+    createdAt: Date;
+    
+    @Prop()
+    updatedAt: Date;
 }
 
 export const NoteSchema = SchemaFactory.createForClass(Note);
