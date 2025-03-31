@@ -1,8 +1,12 @@
+import { NotesService } from './../notes/notes.service';
 import { HttpService } from '@nestjs/axios';
-import { Injectable, Logger, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, HttpException, HttpStatus, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectModel } from '@nestjs/mongoose';
 import { AxiosError, AxiosRequestConfig } from 'axios';
+import { Model } from 'mongoose';
 import { firstValueFrom, catchError, map } from 'rxjs';
+import { Note, NoteDocument } from 'src/notes/schemas/note.schema';
 
 @Injectable()
 export class IcafeService {
@@ -14,6 +18,7 @@ export class IcafeService {
     constructor(
         private readonly httpService: HttpService,
         private readonly configService: ConfigService,
+        @InjectModel(Note.name) private noteModel: Model<NoteDocument>, // Add this to inject the Note model directly
     ) {
         // Retrieve credentials once during service initialization
         this.cafeId = this.configService.get<string>('ICAFE_CAFE_ID');
@@ -39,7 +44,12 @@ export class IcafeService {
         const url = `${this.baseUrl}/${this.cafeId}/members/${memberId}`;
         this.logger.log(`Fetching member ID ${memberId} from: ${url}`);
 
-        const requestConfig = this.getRequestConfig();
+        const requestConfig = {
+            ...this.getRequestConfig(),
+            params: {
+                sort: 'asc'
+            }
+        };
 
         return firstValueFrom(
             this.httpService.get(url, requestConfig).pipe(
@@ -95,7 +105,10 @@ export class IcafeService {
             try {
                 const response = await firstValueFrom(
                     this.httpService.get(url, requestConfig).pipe(
-                        map(response => response.data?.data),
+                        map(response => {
+                            this.logger.debug('Raw iCafeCloud response:', JSON.stringify(response.data, null, 2));
+                            return response.data?.data;
+                        }),
                         catchError((error: AxiosError) => {
                             this.logger.error(
                                 `Error searching for member with account ${accountName}: ${error.message}`,
@@ -169,31 +182,172 @@ export class IcafeService {
      * @returns Promise<any[]> Array of PC objects from the API.
      * @throws HttpException on API error.
      */
-    async getPcsList(): Promise<any[]> {
-        const url = `${this.baseUrl}/${this.cafeId}/pcs`;
-        this.logger.log(`Fetching PC list from: ${url}`);
-
+   // In icafeService.ts
+   async getPcsWithUserInfo(): Promise<any[]> {
+    try {
+        // Get basic PC list
+        const baseUrl = `${this.baseUrl}/${this.cafeId}/pcs`;
         const requestConfig = this.getRequestConfig();
-
-        return firstValueFrom(
-            this.httpService.get(url, requestConfig).pipe(
-                map(response => {
-                    if (response.data && Array.isArray(response.data.data)) {
-                        this.logger.log(`Successfully fetched ${response.data.data.length} PCs.`);
-                        return response.data.data;
-                    } else {
-                        this.logger.warn('PC list response structure unexpected:', response.data);
-                        return [];
-                    }
-                }),
-                catchError((error: AxiosError) => {
-                    this.logger.error(`Error fetching PC list: ${error.message}`, error.stack);
-                    const status = error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR;
-                    const message = error.response?.data || 'Failed to fetch PC list from iCafeCloud';
-                    throw new HttpException(message, status);
-                }),
-            ),
+        
+        const response = await firstValueFrom(
+            this.httpService.get(baseUrl, requestConfig).pipe(
+                map(response => response.data?.data || [])
+            )
         );
+        
+        // Process each PC
+        const pcsWithDetails = await Promise.all(
+            response.map(async (pc: any) => {
+                // Transform basic PC data
+                const transformedPc = {
+                    pc_id: pc.pc_icafe_id || pc.id,
+                    pc_name: pc.pc_name || pc.name,
+                    status: pc.pc_in_using === 1 ? 'in_use' : 'available',
+                    // Add other basic fields
+                    pc_area_name: pc.pc_area_name,
+                    pc_enabled: pc.pc_enabled,
+                    current_member_id: undefined,
+                    current_member_account: undefined,
+                    time_left: undefined
+                };
+                
+                // If PC is in use, get member details
+                if (pc.pc_in_using === 1) {
+                    try {
+                        // Get console details for this PC
+                        const consoleDetail = await this.getConsoleDetail(pc.pc_name);
+                        
+                        if (consoleDetail) {
+                            // Add member info to the PC object
+                            transformedPc.current_member_id = consoleDetail.member_id;
+                            transformedPc.current_member_account = consoleDetail.member_account;
+                            transformedPc.time_left = consoleDetail.left_time;
+                        }
+                    } catch (error) {
+                        this.logger.warn(`Could not get console details for ${pc.pc_name}: ${error.message}`);
+                    }
+                }
+                
+                return transformedPc;
+            })
+        );
+        
+        // Get all PC names
+        const pcNames = pcsWithDetails.map(pc => pc.pc_name);
+        
+        try {
+            // Query notes directly in this service instead of using a separate service
+            const activeNotes = await this.noteModel.find({
+                pcName: { $in: pcNames },
+                isActive: true
+            }).exec();
+            
+            // Create a map of PC names to boolean (has active notes)
+            const notesMap: Record<string, boolean> = {};
+            pcNames.forEach(pcName => {
+                notesMap[pcName] = activeNotes.some(note => note.pcName === pcName);
+            });
+            
+            // Add notes info to each PC
+            return pcsWithDetails.map(pc => ({
+                ...pc,
+                has_notes: !!notesMap[pc.pc_name]
+            }));
+        } catch (error) {
+            this.logger.error(`Failed to add notes info to PCs: ${error.message}`);
+            return pcsWithDetails; // Return PCs without notes info
+        }
+    } catch (error) {
+        this.logger.error(`Failed to get PCs with user info: ${error.message}`);
+        throw error;
+    }
+}
+
+    /**
+     * Fetches all members from iCafeCloud.
+     * @returns Promise<any[]> Array of all members from iCafeCloud.
+     * @throws HttpException on API error.
+     */
+    async getAllMembers(): Promise<any[]> {
+        const url = `${this.baseUrl}/${this.cafeId}/members`;
+        let currentPage = 1;
+        let allMembers: any[] = [];
+        let hasMoreResults = true;
+    
+        // First request to get total pages info
+        const requestConfig = {
+            ...this.getRequestConfig(),
+            params: {
+                sort: 'asc',
+                sort_name: 'member_account',
+                page: currentPage,
+                guest: 0
+            }
+        };
+    
+        try {
+            // Get first page and pagination info
+            const firstPageResponse = await firstValueFrom(
+                this.httpService.get(url, requestConfig).pipe(
+                    map(response => response.data)
+                )
+            );
+    
+            if (!firstPageResponse?.data?.members) {
+                return [];
+            }
+    
+            // Add first page results
+            allMembers = [...firstPageResponse.data.members];
+            
+            // Extract pagination info
+            const totalPages = firstPageResponse.data.paging_info?.pages || 1;
+            this.logger.log(`Total pages: ${totalPages}, fetched page 1 with ${allMembers.length} members`);
+            
+            // If more than one page, fetch remaining pages in parallel
+            if (totalPages > 1) {
+                const remainingPageRequests = [];
+                
+                // Create requests for all remaining pages
+                for (let page = 2; page <= totalPages; page++) {
+                    const pageConfig = {
+                        ...this.getRequestConfig(),
+                        params: {
+                            sort: 'asc',
+                            sort_name: 'member_account',
+                            page: page,
+                            guest: 0
+                        }
+                    };
+                    
+                    remainingPageRequests.push(
+                        firstValueFrom(
+                            this.httpService.get(url, pageConfig).pipe(
+                                map(response => {
+                                    const members = response.data?.data?.members || [];
+                                    this.logger.log(`Fetched page ${page} with ${members.length} members`);
+                                    return members;
+                                })
+                            )
+                        )
+                    );
+                }
+                
+                // Execute all remaining page requests in parallel
+                const remainingPagesResults = await Promise.all(remainingPageRequests);
+                
+                // Combine all results
+                for (const pageMembers of remainingPagesResults) {
+                    allMembers = [...allMembers, ...pageMembers];
+                }
+            }
+            
+            this.logger.log(`Successfully fetched ${allMembers.length} total members`);
+            return allMembers;
+        } catch (error) {
+            this.logger.error(`Failed to fetch all members: ${error.message}`, error.stack);
+            throw error;
+        }
     }
 
     /**
@@ -210,27 +364,27 @@ export class IcafeService {
         const requestConfig = this.getRequestConfig();
     
         return firstValueFrom(
-          this.httpService.get(url, requestConfig).pipe(
-            map(response => {
-              if (response.data?.data.pc) {
-                 this.logger.log(`Successfully fetched console detail for ${pcName}.`);
-                return response.data.data.pc;
-              } else {
-                this.logger.warn(`Console detail response structure unexpected for ${pcName}:`, response.data);
-                return null;
-              }
-            }),
-            catchError((error: AxiosError) => {
-              this.logger.error(`Error fetching console detail for ${pcName}: ${error.message}`, error.stack);
-              const status = error.response?.status;
-              if (status === HttpStatus.NOT_FOUND) {
-                 this.logger.warn(`Console detail API returned 404 for ${pcName}. PC likely not found.`);
-                 throw new NotFoundException(`PC '${pcName}' not found via iCafeCloud API`);
-              }
-              const message = error.response?.data || `Failed to fetch console detail for ${pcName} from iCafeCloud`;
-              throw new HttpException(message, status || HttpStatus.INTERNAL_SERVER_ERROR);
-            }),
-          ),
+            this.httpService.get(url, requestConfig).pipe(
+                map(response => {
+                    if (response.data?.data.pc) {
+                        this.logger.log(`Successfully fetched console detail for ${pcName}.`);
+                        return response.data.data.pc;
+                    } else {
+                        this.logger.warn(`Console detail response structure unexpected for ${pcName}:`, response.data);
+                        return null;
+                    }
+                }),
+                catchError((error: AxiosError) => {
+                    this.logger.error(`Error fetching console detail for ${pcName}: ${error.message}`, error.stack);
+                    const status = error.response?.status;
+                    if (status === HttpStatus.NOT_FOUND) {
+                        this.logger.warn(`Console detail API returned 404 for ${pcName}. PC likely not found.`);
+                        throw new NotFoundException(`PC '${pcName}' not found via iCafeCloud API`);
+                    }
+                    const message = error.response?.data || `Failed to fetch console detail for ${pcName} from iCafeCloud`;
+                    throw new HttpException(message, status || HttpStatus.INTERNAL_SERVER_ERROR);
+                }),
+            ),
         );
     }
 }

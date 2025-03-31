@@ -5,7 +5,8 @@ import { ConfigModule } from '@nestjs/config';
 import { DatabaseModule } from './database/database.module';
 import { NotesModule } from './notes/notes.module';
 import { IcafeModule } from './icafe/icafe.module';
-
+import { PcsModule } from './pcs/pcs.module';
+import { MembersModule } from './members/members.module';
 
 @Module({
   imports: [
@@ -16,7 +17,9 @@ import { IcafeModule } from './icafe/icafe.module';
     }),
     DatabaseModule,
     NotesModule,
-    IcafeModule
+    IcafeModule,
+    PcsModule,
+    MembersModule
   ],
   controllers: [AppController],
   providers: [AppService],
