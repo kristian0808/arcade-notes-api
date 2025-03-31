@@ -227,4 +227,53 @@ export class NotesService {
             throw new InternalServerErrorException('Failed to retrieve notes');
         }
     }
+
+    /**
+     * Resolve a note by setting its isActive flag to false
+     * @param id The ID of the note to resolve
+     * @returns The updated note document
+     */
+    async resolveNote(id: string): Promise<NoteDocument> {
+        this.logger.log(`Attempting to resolve note with ID: ${id}`);
+
+        // Find the note by ID and update its isActive flag to false
+        const updatedNote = await this.noteModel.findByIdAndUpdate(
+            id,
+            { isActive: false },
+            { new: true } // Option to return the modified document
+        ).exec();
+
+        if (!updatedNote) {
+            this.logger.warn(`Note with ID ${id} not found for resolving.`);
+            throw new NotFoundException(`Note with ID ${id} not found.`);
+        }
+
+        this.logger.log(`Note ${id} marked as resolved successfully.`);
+        return updatedNote;
+    }
+
+
+    // In notesService.ts
+async getActivePcNotesMap(pcNames: string[]): Promise<Record<string, boolean>> {
+  const result: Record<string, boolean> = {};
+  
+  try {
+      // Find all active notes for the given PCs
+      const notes = await this.noteModel.find({
+          pcName: { $in: pcNames },
+          isActive: true
+      }).exec();
+      
+      // Create a map of PC names to boolean (has active notes)
+      pcNames.forEach(pcName => {
+          result[pcName] = notes.some(note => note.pcName === pcName);
+      });
+      
+      return result;
+  } catch (error) {
+      this.logger.error(`Failed to get PC notes map: ${error.message}`);
+      return {};
+  }
 }
+}
+

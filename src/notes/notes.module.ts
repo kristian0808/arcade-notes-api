@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Mongoose } from 'mongoose';
 import { Note, NoteSchema } from './schemas/note.schema';
@@ -13,10 +13,13 @@ import { NotesService } from './notes.service';
                 name: Note.name,
                 schema: NoteSchema,
             },
-        ]),
+        ],),
+        forwardRef(() => IcafeModule),
         IcafeModule,
     ],
     controllers: [NotesController],
     providers: [NotesService],
+    exports: [
+        NotesService,]
 })
 export class NotesModule {}
