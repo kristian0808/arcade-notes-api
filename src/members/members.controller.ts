@@ -41,7 +41,7 @@ export class MembersController {
             throw new InternalServerErrorException(`Failed to retrieve member with ID ${memberId}`);
         }
     }
-
+    
     @Get()
     async getAllMembers(): Promise<MemberResponseDto[]> {
         this.logger.log('Fetching all members');

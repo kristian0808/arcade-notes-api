@@ -14,7 +14,7 @@ export class Note {
 
     @Prop({
         type: String,
-        required: false,
+        required: true,
     })
     memberAccount: string;
 

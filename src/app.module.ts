@@ -7,6 +7,8 @@ import { NotesModule } from './notes/notes.module';
 import { IcafeModule } from './icafe/icafe.module';
 import { PcsModule } from './pcs/pcs.module';
 import { MembersModule } from './members/members.module';
+import { TabsModule } from './tabs/tabs.module';
+import { ProductsModule } from './products/products.module';
 
 @Module({
   imports: [
@@ -19,7 +21,9 @@ import { MembersModule } from './members/members.module';
     NotesModule,
     IcafeModule,
     PcsModule,
-    MembersModule
+    MembersModule,
+    TabsModule,
+    ProductsModule
   ],
   controllers: [AppController],
   providers: [AppService],
