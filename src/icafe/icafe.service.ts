@@ -84,7 +84,7 @@ export class IcafeService {
      */
     async getMemberByAccount(accountName: string): Promise<any> {
         this.logger.log(`Searching for member with account name: ${accountName}`);
-        
+
         const url = `${this.baseUrl}/${this.cafeId}/members`;
         let currentPage = 1;
         let allMembers: any[] = [];
@@ -133,7 +133,7 @@ export class IcafeService {
                     const exactMatch = members.find(
                         member => member.member_account === accountName
                     );
-                    
+
                     if (exactMatch) {
                         this.logger.log(`Found exact match for ${accountName} with ID ${exactMatch.member_id}`);
                         return exactMatch;
@@ -182,86 +182,89 @@ export class IcafeService {
      * @returns Promise<any[]> Array of PC objects from the API.
      * @throws HttpException on API error.
      */
-   // In icafeService.ts
-   async getPcsWithUserInfo(): Promise<any[]> {
-    try {
-        // Get basic PC list
-        const baseUrl = `${this.baseUrl}/${this.cafeId}/pcs`;
-        const requestConfig = this.getRequestConfig();
-        
-        const response = await firstValueFrom(
-            this.httpService.get(baseUrl, requestConfig).pipe(
-                map(response => response.data?.data || [])
-            )
-        );
-        
-        // Process each PC
-        const pcsWithDetails = await Promise.all(
-            response.map(async (pc: any) => {
-                // Transform basic PC data
-                const transformedPc = {
-                    pc_id: pc.pc_icafe_id || pc.id,
-                    pc_name: pc.pc_name || pc.name,
-                    status: pc.pc_in_using === 1 ? 'in_use' : 'available',
-                    // Add other basic fields
-                    pc_area_name: pc.pc_area_name,
-                    pc_enabled: pc.pc_enabled,
-                    current_member_id: undefined,
-                    current_member_account: undefined,
-                    time_left: undefined
-                };
-                
-                // If PC is in use, get member details
-                if (pc.pc_in_using === 1) {
-                    try {
-                        // Get console details for this PC
-                        const consoleDetail = await this.getConsoleDetail(pc.pc_name);
-                        
-                        if (consoleDetail) {
-                            // Add member info to the PC object
-                            transformedPc.current_member_id = consoleDetail.member_id;
-                            transformedPc.current_member_account = consoleDetail.member_account;
-                            transformedPc.time_left = consoleDetail.left_time;
-                        }
-                    } catch (error) {
-                        this.logger.warn(`Could not get console details for ${pc.pc_name}: ${error.message}`);
-                    }
-                }
-                
-                return transformedPc;
-            })
-        );
-        
-        // Get all PC names
-        const pcNames = pcsWithDetails.map(pc => pc.pc_name);
-        
+    // In icafeService.ts
+    async getPcsWithUserInfo(): Promise<any[]> {
         try {
-            // Query notes directly in this service instead of using a separate service
-            const activeNotes = await this.noteModel.find({
-                pcName: { $in: pcNames },
-                isActive: true
-            }).exec();
-            
-            // Create a map of PC names to boolean (has active notes)
-            const notesMap: Record<string, boolean> = {};
-            pcNames.forEach(pcName => {
-                notesMap[pcName] = activeNotes.some(note => note.pcName === pcName);
-            });
-            
-            // Add notes info to each PC
-            return pcsWithDetails.map(pc => ({
-                ...pc,
-                has_notes: !!notesMap[pc.pc_name]
-            }));
+            // Get basic PC list
+            const baseUrl = `${this.baseUrl}/${this.cafeId}/pcs`;
+            const requestConfig = this.getRequestConfig();
+
+            const response = await firstValueFrom(
+                this.httpService.get(baseUrl, requestConfig).pipe(
+                    map(response => response.data?.data || [])
+                )
+            );
+
+            // Process each PC
+            const pcsWithDetails = await Promise.all(
+                response.map(async (pc: any) => {
+                    // Transform basic PC data
+                    const transformedPc = {
+                        pc_id: pc.pc_icafe_id || pc.id,
+                        pc_name: pc.pc_name || pc.name,
+                        status: pc.pc_in_using === 1 ? 'in_use' : 'available',
+                        // Add other basic fields
+                        pc_area_name: pc.pc_area_name,
+                        pc_enabled: pc.pc_enabled,
+                        current_member_id: undefined,
+                        current_member_account: undefined,
+                        time_left: undefined
+                    };
+
+                    // If PC is in use, get member details
+                    if (pc.pc_in_using === 1) {
+                        try {
+                            // Get console details for this PC
+                            const consoleDetail = await this.getConsoleDetail(pc.pc_name);
+                            const parsedData = await this.getProducts();
+                            const productNames = parsedData.map(item => item.product_name);
+                            console.log(`Product List: ${JSON.stringify(productNames)}`);
+
+                            if (consoleDetail) {
+                                // Add member info to the PC object
+                                transformedPc.current_member_id = consoleDetail.member_id;
+                                transformedPc.current_member_account = consoleDetail.member_account;
+                                transformedPc.time_left = consoleDetail.left_time;
+                            }
+                        } catch (error) {
+                            this.logger.warn(`Could not get console details for ${pc.pc_name}: ${error.message}`);
+                        }
+                    }
+
+                    return transformedPc;
+                })
+            );
+
+            // Get all PC names
+            const pcNames = pcsWithDetails.map(pc => pc.pc_name);
+
+            try {
+                // Query notes directly in this service instead of using a separate service
+                const activeNotes = await this.noteModel.find({
+                    pcName: { $in: pcNames },
+                    isActive: true
+                }).exec();
+
+                // Create a map of PC names to boolean (has active notes)
+                const notesMap: Record<string, boolean> = {};
+                pcNames.forEach(pcName => {
+                    notesMap[pcName] = activeNotes.some(note => note.pcName === pcName);
+                });
+
+                // Add notes info to each PC
+                return pcsWithDetails.map(pc => ({
+                    ...pc,
+                    has_notes: !!notesMap[pc.pc_name]
+                }));
+            } catch (error) {
+                this.logger.error(`Failed to add notes info to PCs: ${error.message}`);
+                return pcsWithDetails; // Return PCs without notes info
+            }
         } catch (error) {
-            this.logger.error(`Failed to add notes info to PCs: ${error.message}`);
-            return pcsWithDetails; // Return PCs without notes info
+            this.logger.error(`Failed to get PCs with user info: ${error.message}`);
+            throw error;
         }
-    } catch (error) {
-        this.logger.error(`Failed to get PCs with user info: ${error.message}`);
-        throw error;
     }
-}
 
     /**
      * Fetches all members from iCafeCloud.
@@ -273,7 +276,7 @@ export class IcafeService {
         let currentPage = 1;
         let allMembers: any[] = [];
         let hasMoreResults = true;
-    
+
         // First request to get total pages info
         const requestConfig = {
             ...this.getRequestConfig(),
@@ -284,7 +287,7 @@ export class IcafeService {
                 guest: 0
             }
         };
-    
+
         try {
             // Get first page and pagination info
             const firstPageResponse = await firstValueFrom(
@@ -292,22 +295,22 @@ export class IcafeService {
                     map(response => response.data)
                 )
             );
-    
+
             if (!firstPageResponse?.data?.members) {
                 return [];
             }
-    
+
             // Add first page results
             allMembers = [...firstPageResponse.data.members];
-            
+
             // Extract pagination info
             const totalPages = firstPageResponse.data.paging_info?.pages || 1;
             this.logger.log(`Total pages: ${totalPages}, fetched page 1 with ${allMembers.length} members`);
-            
+
             // If more than one page, fetch remaining pages in parallel
             if (totalPages > 1) {
                 const remainingPageRequests = [];
-                
+
                 // Create requests for all remaining pages
                 for (let page = 2; page <= totalPages; page++) {
                     const pageConfig = {
@@ -319,7 +322,7 @@ export class IcafeService {
                             guest: 0
                         }
                     };
-                    
+
                     remainingPageRequests.push(
                         firstValueFrom(
                             this.httpService.get(url, pageConfig).pipe(
@@ -332,16 +335,16 @@ export class IcafeService {
                         )
                     );
                 }
-                
+
                 // Execute all remaining page requests in parallel
                 const remainingPagesResults = await Promise.all(remainingPageRequests);
-                
+
                 // Combine all results
                 for (const pageMembers of remainingPagesResults) {
                     allMembers = [...allMembers, ...pageMembers];
                 }
             }
-            
+
             this.logger.log(`Successfully fetched ${allMembers.length} total members`);
             return allMembers;
         } catch (error) {
@@ -360,9 +363,9 @@ export class IcafeService {
         const encodedPcName = encodeURIComponent(pcName);
         const url = `${this.baseUrl}/${this.cafeId}/pcs/action/consoleDetail?pc_name=${encodedPcName}`;
         this.logger.log(`Fetching console detail for ${pcName} from: ${url}`);
-    
+
         const requestConfig = this.getRequestConfig();
-    
+
         return firstValueFrom(
             this.httpService.get(url, requestConfig).pipe(
                 map(response => {
@@ -385,6 +388,37 @@ export class IcafeService {
                     throw new HttpException(message, status || HttpStatus.INTERNAL_SERVER_ERROR);
                 }),
             ),
+        );
+    }
+
+    // Add to IcafeService
+    async getProducts(query?: string): Promise<any[]> {
+        const url = `${this.baseUrl}/${this.cafeId}/products`;
+        const requestConfig = {
+            ...this.getRequestConfig(),
+            params: {
+                search_text: query || '',
+                sort_name: 'product_name',
+                sort: 'asc'
+            }
+        };
+
+        return firstValueFrom(
+            this.httpService.get(url, requestConfig).pipe(
+                map(response => {
+                    if (response.data?.data?.items) {
+                        return response.data.data.items;
+                    }
+                    return [];
+                }),
+                catchError(error => {
+                    this.logger.error(`Error fetching products: ${error.message}`, error.stack);
+                    throw new HttpException(
+                        'Failed to fetch products from iCafeCloud',
+                        error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR
+                    );
+                })
+            )
         );
     }
 }
