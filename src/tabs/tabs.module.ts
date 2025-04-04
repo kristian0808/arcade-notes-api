@@ -1,5 +1,5 @@
 // src/tabs/tabs.module.ts
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { TabsController } from './tabs.controller';
 import { TabsService } from './tabs.service';
@@ -14,7 +14,7 @@ import { Tab, TabSchema } from 'src/notes/schemas/tab.schema';
         schema: TabSchema,
       },
     ]),
-    IcafeModule,
+    forwardRef(() => IcafeModule),
   ],
   controllers: [TabsController],
   providers: [TabsService],

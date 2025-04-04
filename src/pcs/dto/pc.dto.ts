@@ -8,4 +8,5 @@ export class Pc {
         id: number;
         name: string;
     };
+    has_active_tab?: boolean;
 }
