@@ -1,4 +1,5 @@
 import { NotesService } from './../notes/notes.service';
+import { TabsService } from './../tabs/tabs.service';
 import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger, HttpException, HttpStatus, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -18,7 +19,9 @@ export class IcafeService {
     constructor(
         private readonly httpService: HttpService,
         private readonly configService: ConfigService,
-        @InjectModel(Note.name) private noteModel: Model<NoteDocument>, // Add this to inject the Note model directly
+        @Inject(forwardRef(() => TabsService))
+        private readonly tabsService: TabsService,
+        @InjectModel(Note.name) private noteModel: Model<NoteDocument>,
     ) {
         // Retrieve credentials once during service initialization
         this.cafeId = this.configService.get<string>('ICAFE_CAFE_ID');
@@ -199,16 +202,28 @@ export class IcafeService {
             const pcsWithDetails = await Promise.all(
                 response.map(async (pc: any) => {
                     // Transform basic PC data
-                    const transformedPc = {
+                    interface TransformedPc {
+                        pc_id: string;
+                        pc_name: string;
+                        status: string;
+                        pc_area_name: string;
+                        pc_enabled: boolean;
+                        current_member_id?: number;
+                        current_member_account?: string;
+                        time_left?: string;
+                        has_active_tab?: boolean;
+                    }
+
+                    const transformedPc: TransformedPc = {
                         pc_id: pc.pc_icafe_id || pc.id,
                         pc_name: pc.pc_name || pc.name,
                         status: pc.pc_in_using === 1 ? 'in_use' : 'available',
-                        // Add other basic fields
                         pc_area_name: pc.pc_area_name,
                         pc_enabled: pc.pc_enabled,
                         current_member_id: undefined,
                         current_member_account: undefined,
-                        time_left: undefined
+                        time_left: undefined,
+                        has_active_tab: false
                     };
 
                     // If PC is in use, get member details
@@ -218,13 +233,17 @@ export class IcafeService {
                             const consoleDetail = await this.getConsoleDetail(pc.pc_name);
                             const parsedData = await this.getProducts();
                             const productNames = parsedData.map(item => item.product_name);
-                            console.log(`Product List: ${JSON.stringify(productNames)}`);
+                            // console.log(`Product List: ${JSON.stringify(productNames)}`);
 
                             if (consoleDetail) {
                                 // Add member info to the PC object
                                 transformedPc.current_member_id = consoleDetail.member_id;
                                 transformedPc.current_member_account = consoleDetail.member_account;
                                 transformedPc.time_left = consoleDetail.left_time;
+
+                                // Check for active tab
+                                const hasActiveTab = await this.tabsService.hasActiveTab(consoleDetail.member_id);
+                                transformedPc.has_active_tab = hasActiveTab;
                             }
                         } catch (error) {
                             this.logger.warn(`Could not get console details for ${pc.pc_name}: ${error.message}`);

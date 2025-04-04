@@ -275,7 +275,7 @@ export class TabsService {
      /**
      * Helper method to convert TabDocument to TabResponseDto
      */
-     private mapToTabResponse(tab: TabDocument): TabResponseDto {
+    private mapToTabResponse(tab: TabDocument): TabResponseDto {
         return {
             id: tab._id.toString(),
             memberId: tab.memberId,
@@ -288,5 +288,19 @@ export class TabsService {
             updatedAt: tab.updatedAt,
             closedAt: tab.closedAt
         };
+    }
+
+    /**
+     * Check if a member has an active tab
+     */
+    async hasActiveTab(memberId: number): Promise<boolean> {
+        this.logger.log(`Checking for active tab for member ID: ${memberId}`);
+        
+        const activeTab = await this.tabModel.findOne({
+            memberId: memberId,
+            status: 'active'
+        }).exec();
+        
+        return !!activeTab;
     }
 }
