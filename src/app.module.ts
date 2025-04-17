@@ -9,6 +9,8 @@ import { PcsModule } from './pcs/pcs.module';
 import { MembersModule } from './members/members.module';
 import { TabsModule } from './tabs/tabs.module';
 import { ProductsModule } from './products/products.module';
+import { WebsocketsModule } from './websockets/websockets.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -23,7 +25,9 @@ import { ProductsModule } from './products/products.module';
     PcsModule,
     MembersModule,
     TabsModule,
-    ProductsModule
+    ProductsModule,
+    ScheduleModule.forRoot(), // Schedule module for cron jobs @Interval
+    WebsocketsModule
   ],
   controllers: [AppController],
   providers: [AppService],
