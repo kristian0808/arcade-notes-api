@@ -1,6 +1,8 @@
 import { Controller, Get, Param, Query, NotFoundException, InternalServerErrorException, ParseIntPipe, Logger, BadRequestException } from '@nestjs/common';
 import { IcafeService } from '../icafe/icafe.service';
 import { MemberResponseDto } from '../notes/dto/icafeMember.dto';
+import { MemberRankingsQueryDto, TimeframeEnum } from './dto/member-rankings-query.dto';
+import { MemberRankingDto } from './dto/member-ranking.dto';
 
 @Controller('api/members')
 export class MembersController {
@@ -25,6 +27,21 @@ export class MembersController {
             this.logger.error(`Failed to search members for query "${accountName}": ${error.message}`, error.stack);
             throw new InternalServerErrorException('Failed to search members');
         }
+    }
+    //Members rankings
+    @Get('rankings')
+    async getMemberRankings(
+      @Query() query: MemberRankingsQueryDto
+    ): Promise<MemberRankingDto[]> {
+      const timeframe = query.timeframe || TimeframeEnum.MONTH;
+      this.logger.log(`Fetching member rankings with timeframe: ${timeframe}`);
+      
+      try {
+        return await this.icafeService.calculateMemberRankings(timeframe);
+      } catch (error) {
+        this.logger.error(`Failed to fetch member rankings: ${error.message}`, error.stack);
+        throw new InternalServerErrorException('Failed to fetch member rankings');
+      }
     }
 
     @Get(':memberId')
