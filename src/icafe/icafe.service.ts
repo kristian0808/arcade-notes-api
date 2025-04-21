@@ -8,6 +8,11 @@ import { AxiosError, AxiosRequestConfig } from 'axios';
 import { Model } from 'mongoose';
 import { firstValueFrom, catchError, map } from 'rxjs';
 import { Note, NoteDocument } from 'src/notes/schemas/note.schema';
+import { BillingLogsParamsDto } from './dto/billing-logs-params.dto';
+import { BillingLogResponseDto } from './dto/billing-log.dto';
+import { TimeframeEnum } from 'src/members/dto/member-rankings-query.dto';
+import { MemberRankingDto } from 'src/members/dto/member-ranking.dto';
+import { MemberUsageData } from './dto/member-usage-data.dto';
 
 @Injectable()
 export class IcafeService {
@@ -78,6 +83,228 @@ export class IcafeService {
             ),
         );
     }
+
+    // Billing logs for members
+    async getBillingLogs(params: BillingLogsParamsDto): Promise<BillingLogResponseDto | null> {
+    const url = `${this.baseUrl}/${this.cafeId}/billingLogs`;
+    
+    // Build query parameters
+    const queryParams: Record<string, string> = {};
+    if (params.dateStart) queryParams.date_start = params.dateStart;
+    if (params.dateEnd) queryParams.date_end = params.dateEnd;
+    if (params.member) queryParams.member = params.member;
+    if (params.event) queryParams.event = params.event;
+    if (params.page) queryParams.page = params.page.toString();
+    
+    const requestConfig = {
+      ...this.getRequestConfig(),
+      params: queryParams
+    };
+    
+    return firstValueFrom(
+      this.httpService.get(url, requestConfig).pipe(
+        map(response => {
+          if (response.data?.code === 200 && response.data?.data) {
+            return response.data.data;
+          }
+          this.logger.warn('Unexpected billingLogs response structure:', response.data);
+          return null;
+        }),
+        catchError((error: AxiosError) => {
+          this.logger.error(`Error fetching billing logs: ${error.message}`, error.stack);
+          throw new HttpException(
+            'Failed to fetch billing logs from iCafeCloud',
+            error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR
+          );
+        })
+      )
+    );
+  }
+
+  async calculateMemberRankings(timeframe: TimeframeEnum = TimeframeEnum.MONTH): Promise<MemberRankingDto[]> {
+    // Calculate date range based on timeframe
+    const { startDate, endDate } = this.getDateRangeForTimeframe(timeframe);
+    
+    this.logger.log(`Calculating member rankings from ${startDate.toISOString()} to ${endDate.toISOString()}`);
+  
+    // We'll need to fetch multiple pages potentially
+    const memberUsageMap = new Map<string, MemberUsageData>();
+    let currentPage = 1;
+    let hasMorePages = true;
+    
+    // First, gather all CHECKOUT events to calculate usage time
+    while (hasMorePages) {
+      const logsResponse = await this.getBillingLogs({
+        dateStart: startDate.toISOString().split('T')[0],
+        dateEnd: endDate.toISOString().split('T')[0],
+        event: 'CHECKOUT',
+        page: currentPage
+      });
+      
+      if (!logsResponse || !logsResponse.log_list || logsResponse.log_list.length === 0) {
+        hasMorePages = false;
+        continue;
+      }
+      
+      // Process each log entry
+      for (const log of logsResponse.log_list) {
+        const memberAccount = log.log_member_account;
+        if (!memberAccount) continue;
+        
+        // Parse the time used
+        const usedSeconds = this.parseTimeToSeconds(log.log_used_secs);
+        
+        // Skip if no time was used
+        if (usedSeconds <= 0) continue;
+        
+        // Initialize member data if not exists
+        if (!memberUsageMap.has(memberAccount)) {
+          memberUsageMap.set(memberAccount, {
+            memberAccount,
+            totalSeconds: 0,
+            sessionCount: 0,
+            lastActive: null,
+            totalTopups: 0
+          });
+        }
+        
+        // Update member stats
+        const memberData = memberUsageMap.get(memberAccount);
+        memberData.totalSeconds += usedSeconds;
+        memberData.sessionCount += 1;
+        
+        // Update last active date if more recent
+        const logDate = new Date(log.log_date_local);
+        if (!memberData.lastActive || logDate > memberData.lastActive) {
+          memberData.lastActive = logDate;
+        }
+      }
+      
+      // Check if there are more pages
+      const paging = logsResponse.paging_info;
+      if (paging && parseInt(paging.page) < paging.pages) {
+        currentPage++;
+      } else {
+        hasMorePages = false;
+      }
+    }
+    
+    // Now fetch TOPUP events to add topup amounts
+    hasMorePages = true;
+    currentPage = 1;
+    
+    while (hasMorePages) {
+      const logsResponse = await this.getBillingLogs({
+        dateStart: startDate.toISOString().split('T')[0],
+        dateEnd: endDate.toISOString().split('T')[0],
+        event: 'TOPUP',
+        page: currentPage
+      });
+      
+      if (!logsResponse || !logsResponse.log_list || logsResponse.log_list.length === 0) {
+        hasMorePages = false;
+        continue;
+      }
+      
+      // Process each topup
+      for (const log of logsResponse.log_list) {
+        const memberAccount = log.log_member_account;
+        if (!memberAccount) continue;
+        
+        // Calculate total topup (cash + card)
+        const cashAmount = parseFloat(log.log_money) || 0;
+        const cardAmount = parseFloat(log.log_card) || 0;
+        const topupAmount = cashAmount + cardAmount;
+        
+        // Skip if no amount was topped up
+        if (topupAmount <= 0) continue;
+        
+        // Initialize member data if not exists (they might have topped up but not played)
+        if (!memberUsageMap.has(memberAccount)) {
+          memberUsageMap.set(memberAccount, {
+            memberAccount,
+            totalSeconds: 0,
+            sessionCount: 0,
+            lastActive: new Date(log.log_date_local),
+            totalTopups: 0
+          });
+        }
+        
+        // Update topup amount
+        const memberData = memberUsageMap.get(memberAccount);
+        memberData.totalTopups += topupAmount;
+      }
+      
+      // Check if there are more pages
+      const paging = logsResponse.paging_info;
+      if (paging && parseInt(paging.page) < paging.pages) {
+        currentPage++;
+      } else {
+        hasMorePages = false;
+      }
+    }
+    
+    // Convert to array and calculate derived values
+    const rankings = Array.from(memberUsageMap.values())
+      .map(data => ({
+        memberAccount: data.memberAccount,
+        totalHours: Math.round((data.totalSeconds / 3600) * 10) / 10, // Round to 1 decimal
+        sessionCount: data.sessionCount,
+        avgSessionHours: data.sessionCount > 0 ? 
+          Math.round((data.totalSeconds / data.sessionCount / 3600) * 10) / 10 : 0,
+        totalTopups: data.totalTopups,
+        lastActive: data.lastActive ? data.lastActive.toISOString() : null
+      }))
+      .sort((a, b) => b.totalHours - a.totalHours);
+    
+    return rankings;
+  }
+  
+  // Helper to parse HH:MM:SS format to seconds
+  private parseTimeToSeconds(timeStr: string): number {
+    if (!timeStr) return 0;
+    
+    // Try to parse as HH:MM:SS format
+    const match = timeStr.match(/(\d+):(\d+):(\d+)/);
+    if (match) {
+      const hours = parseInt(match[1], 10);
+      const minutes = parseInt(match[2], 10);
+      const seconds = parseInt(match[3], 10);
+      return hours * 3600 + minutes * 60 + seconds;
+    }
+    
+    // If it's just a number, assume it's seconds
+    const seconds = parseFloat(timeStr);
+    if (!isNaN(seconds)) {
+      return seconds;
+    }
+    
+    return 0;
+  }
+  
+  // Helper for date range calculation
+  private getDateRangeForTimeframe(timeframe: 'day' | 'week' | 'month' | 'all'): { startDate: Date, endDate: Date } {
+    const endDate = new Date();
+    let startDate = new Date();
+    
+    switch (timeframe) {
+      case 'day':
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'week':
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case 'month':
+        startDate.setMonth(startDate.getMonth() - 1);
+        break;
+      case 'all':
+        // Go back 1 year as a reasonable "all time" period
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        break;
+    }
+    
+    return { startDate, endDate };
+  }
 
     /**
      * Search for a member by their account name with pagination support
