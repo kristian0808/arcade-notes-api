@@ -1,9 +1,12 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, VersioningType } from '@nestjs/common';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
+
+    // Set global prefix
+    app.setGlobalPrefix('api');
 
     // Enable CORS - Allow requests from frontend
     app.enableCors({
@@ -20,6 +23,12 @@ async function bootstrap() {
         whitelist: true,
         transform: true
     }));
+
+    // Enable URI Versioning (e.g., /api/v1/...)
+    app.enableVersioning({
+        type: VersioningType.URI,
+        defaultVersion: '1', // Set default version to '1'
+    });
 
     await app.listen(3000);
     console.log(`🚀 Application is running on: ${await app.getUrl()}`);

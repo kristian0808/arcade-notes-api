@@ -1,17 +1,17 @@
 // src/tabs/tabs.controller.ts
-import { 
-    Controller, 
-    Get, 
-    Post, 
-    Put, 
-    Delete, 
-    Body, 
-    Param, 
-    Query, 
-    Logger, 
-    HttpCode, 
-    HttpStatus, 
-    NotFoundException, 
+import {
+    Controller,
+    Get,
+    Post,
+    Put,
+    Delete,
+    Body,
+    Param,
+    Query,
+    Logger,
+    HttpCode,
+    HttpStatus,
+    NotFoundException,
     BadRequestException,
     ParseIntPipe
 } from '@nestjs/common';
@@ -22,7 +22,7 @@ import { UpdateTabItemQuantityDto } from './dto/update-tab-item-quantity.dto';
 import { TabResponseDto } from './dto/tab-response.dto';
 import { TabItem } from 'src/notes/schemas/tab.schema';
 
-@Controller('api/tabs')
+@Controller('tabs') // Removed 'api/' prefix
 export class TabsController {
     private readonly logger = new Logger(TabsController.name);
 
@@ -39,13 +39,13 @@ export class TabsController {
         @Param('memberId', ParseIntPipe) memberId: number
     ): Promise<TabResponseDto | { active: false }> {
         this.logger.log(`Getting active tab for member ID: ${memberId}`);
-        
+
         const tab = await this.tabsService.getActiveTabForMember(memberId);
-        
+
         if (!tab) {
             return { active: false };
         }
-        
+
         return tab;
     }
 
