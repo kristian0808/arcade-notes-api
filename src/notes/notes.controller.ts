@@ -5,7 +5,7 @@ import { CreateNoteResponseDto } from './dto/create-note-response.dto';
 import { FindNotesQueryDto } from './dto/find-notes-query.dto';
 import { FindNotesResponseDto } from './dto/note-response.dto';
 
-@Controller('api/notes')
+@Controller('notes') // Removed 'api/' prefix
 export class NotesController {
     private readonly logger = new Logger(NotesController.name);
     constructor(private readonly notesService: NotesService) { }

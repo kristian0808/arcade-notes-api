@@ -1,15 +1,15 @@
-import { 
-    Controller, 
-    Get, 
-    Param, 
-    Query, 
-    Logger, 
-    NotFoundException, 
-    InternalServerErrorException 
+import {
+    Controller,
+    Get,
+    Param,
+    Query,
+    Logger,
+    NotFoundException,
+    InternalServerErrorException
 } from '@nestjs/common';
 import { IcafeService } from '../icafe/icafe.service';
 
-@Controller('api/products')
+@Controller('products') // Removed 'api/' prefix
 export class ProductsController {
     private readonly logger = new Logger(ProductsController.name);
 
@@ -35,11 +35,11 @@ export class ProductsController {
             // if there's no direct "get by ID" endpoint in iCafeCloud
             const products = await this.icafeService.getProducts();
             const product = products.find(p => p.product_id.toString() === productId);
-            
+
             if (!product) {
                 throw new NotFoundException(`Product with ID ${productId} not found`);
             }
-            
+
             return product;
         } catch (error) {
             this.logger.error(`Failed to fetch product ${productId}: ${error.message}`, error.stack);

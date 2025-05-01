@@ -2,7 +2,7 @@ import { Controller, Get, Param, NotFoundException, InternalServerErrorException
 import { IcafeService } from '../icafe/icafe.service';
 import { Pc } from './dto/pc.dto';
 
-@Controller('api/pcs')
+@Controller('pcs') // Removed 'api/' prefix
 export class PcsController {
     private readonly logger = new Logger(PcsController.name);
     constructor(private readonly icafeService: IcafeService) {}
@@ -10,7 +10,7 @@ export class PcsController {
     @Get()
     async getAllPcs(): Promise<Pc[]> {
         try {
-            this.logger.log('Received request for GET /api/pcs');
+            this.logger.log('Received request for GET /api/pcs'); // Log message might need update later
             const pcs = await this.icafeService.getPcsWithUserInfo();
             return pcs;
         } catch (error) {
@@ -22,7 +22,7 @@ export class PcsController {
     @Get(':pcName')
     async getPcDetails(@Param('pcName') pcName: string): Promise<Pc> {
         try {
-            this.logger.log(`Received request for GET /api/pcs/${pcName}`);
+            this.logger.log(`Received request for GET /api/pcs/${pcName}`); // Log message might need update later
             const pcDetail = await this.icafeService.getConsoleDetail(pcName);
             if (!pcDetail) {
                 throw new NotFoundException(`PC '${pcName}' not found.`);

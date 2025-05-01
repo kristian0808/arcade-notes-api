@@ -4,14 +4,14 @@ import { MemberResponseDto } from '../notes/dto/icafeMember.dto';
 import { MemberRankingsQueryDto, TimeframeEnum } from './dto/member-rankings-query.dto';
 import { MemberRankingDto } from './dto/member-ranking.dto';
 
-@Controller('api/members')
+@Controller('members') // Removed 'api/' prefix
 export class MembersController {
     private readonly logger = new Logger(MembersController.name);
     constructor(private readonly icafeService: IcafeService) {}
 
     @Get('search')
     async searchMembers(@Query('query') accountName: string): Promise<MemberResponseDto[]> {
-        this.logger.log(`Received request for GET /api/members/search?query=${accountName}`);
+        this.logger.log(`Received request for GET /api/members/search?query=${accountName}`); // Log message might need update later
         if (!accountName?.trim()) {
             this.logger.log('Empty search query received, returning empty array.');
             return [];
@@ -35,7 +35,7 @@ export class MembersController {
     ): Promise<MemberRankingDto[]> {
       const timeframe = query.timeframe || TimeframeEnum.MONTH;
       this.logger.log(`Fetching member rankings with timeframe: ${timeframe}`);
-      
+
       try {
         return await this.icafeService.calculateMemberRankings(timeframe);
       } catch (error) {
@@ -46,7 +46,7 @@ export class MembersController {
 
     @Get(':memberId')
     async getMemberById(@Param('memberId', ParseIntPipe) memberId: number): Promise<MemberResponseDto> {
-        this.logger.log(`Received request for GET /api/members/${memberId}`);
+        this.logger.log(`Received request for GET /api/members/${memberId}`); // Log message might need update later
         try {
             const member = await this.icafeService.getMemberById(memberId);
             return member;
@@ -58,7 +58,7 @@ export class MembersController {
             throw new InternalServerErrorException(`Failed to retrieve member with ID ${memberId}`);
         }
     }
-    
+
     @Get()
     async getAllMembers(): Promise<MemberResponseDto[]> {
         this.logger.log('Fetching all members');
