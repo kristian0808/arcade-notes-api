@@ -1,6 +1,7 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core'; // Import Reflector
 import { AppModule } from './app.module';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { JwtAuthGuard } from './auth/jwt-auth.guard'; // Import JwtAuthGuard
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
@@ -29,6 +30,11 @@ async function bootstrap() {
         type: VersioningType.URI,
         defaultVersion: '1', // Set default version to '1'
     });
+
+    // Apply global JWT authentication guard
+    // Routes can be exempted using the @Public() decorator
+    const reflector = app.get(Reflector);
+    app.useGlobalGuards(new JwtAuthGuard(reflector));
 
     await app.listen(3000);
     console.log(`🚀 Application is running on: ${await app.getUrl()}`);
