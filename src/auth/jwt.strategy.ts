@@ -1,19 +1,35 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { jwtConstants } from './auth.module'; // Import constants for secret key
+import { ConfigService } from '@nestjs/config'; // Import ConfigService
 import { UsersService } from '../users/users.service'; // Import UsersService
 import { User } from '../users/schemas/user.schema'; // Import User type from schema
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
-    private usersService: UsersService, // Inject UsersService if you need to validate user existence/status
+    private usersService: UsersService, // Inject UsersService
+    private configService: ConfigService, // Inject ConfigService
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(), // Extracts token from 'Authorization: Bearer <token>'
+      // Define a custom extractor function
+      jwtFromRequest: (request: any) => { // Use 'any' or import Request from express
+        let token = null;
+        // Try to get token from the 'jwt' cookie
+        if (request && request.cookies) {
+          token = request.cookies['jwt'];
+        }
+        // Fallback: If no cookie, try extracting from Authorization header
+        if (!token) {
+          token = ExtractJwt.fromAuthHeaderAsBearerToken()(request);
+        }
+        return token;
+      },
       ignoreExpiration: false, // Ensure expired tokens are rejected
-      secretOrKey: jwtConstants.secret, // Use the same secret key as in AuthModule
+      secretOrKey: configService.get<string>('JWT_SECRET'), // Get secret from ConfigService
+      // Optional: Add issuer and audience validation if set in AuthModule
+      // issuer: configService.get<string>('JWT_ISSUER'),
+      // audience: configService.get<string>('JWT_AUDIENCE'),
     });
   }
 

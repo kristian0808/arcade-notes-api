@@ -1,61 +1,99 @@
-import { Controller, Post, UseGuards, Request, HttpCode, HttpStatus, Get, Body } from '@nestjs/common'; // Re-added Body
+import { Controller, Post, UseGuards, Request, HttpCode, HttpStatus, Get, Body, Res, UnauthorizedException } from '@nestjs/common'; // Added UnauthorizedException
 import { AuthService } from './auth.service';
-import { UsersService } from '../users/users.service'; // Import UsersService
 import { LocalAuthGuard } from './local-auth.guard';
-import { User } from '../users/schemas/user.schema'; // Import User type from schema
-import { Public } from './public.decorator'; // Import Public decorator
-import { CreateUserDto } from '../users/dto/create-user.dto'; // Re-added CreateUserDto import
+import { User } from '../users/schemas/user.schema';
+import { Public } from './public.decorator';
+import { Response } from 'express';
 
 @Controller('auth')
 export class AuthController {
-  constructor(
-    private authService: AuthService,
-    private usersService: UsersService, // Inject UsersService
-  ) {}
+  constructor(private authService: AuthService) {}
 
-  /**
-   * Handles POST /auth/login requests.
-   * The LocalAuthGuard intercepts the request, validates credentials using LocalStrategy.
-   * If valid, the user object (returned by LocalStrategy.validate) is attached to req.user.
-   * We then call authService.login with req.user to generate the JWT.
-   */
-  @Public() // Mark this route as public
+  @Public()
   @UseGuards(LocalAuthGuard)
-  @HttpCode(HttpStatus.OK) // Set response code to 200 OK on success
+  @HttpCode(HttpStatus.OK)
   @Post('login')
-  async login(@Request() req: { user: Omit<User, 'password'> }) {
-    // req.user is populated by the LocalAuthGuard/LocalStrategy
-    return this.authService.login(req.user);
+  async login(@Request() req: { user: Omit<User, 'password'> }, @Res({ passthrough: true }) res: Response) {
+    const tokens = await this.authService.login(req.user);
+    
+    // Set HttpOnly cookies
+    res.cookie('jwt', tokens.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000, // 15 minutes
+      path: '/'
+    });
+    
+    res.cookie('refresh_token', tokens.refresh_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/auth/refresh' // Only available for refresh endpoint
+    });
+    
+    return { message: 'Login successful' };
   }
 
-  /* --- COMMENTED OUT: Public Registration Endpoint ---
-  /**
-   * Handles POST /auth/register requests.
-   * Creates a new user using UsersService.
-   */
-  /*
-  @Public() // Mark this route as public
-  @Post('register')
-  async register(@Body() createUserDto: CreateUserDto) {
-    // The ValidationPipe automatically validates the incoming body against CreateUserDto
-    const user = await this.usersService.create(createUserDto);
-    // Exclude password from the response
-    // The toJSON method in the schema handles this if called implicitly,
-    // otherwise, manually exclude it.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...result } = user.toObject(); // Use toObject() to get a plain object
-    return result;
-  }
-  */
+  @Public()
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  async refresh(@Request() req: any, @Res({ passthrough: true }) res: Response) {
+    const refreshToken = req.cookies?.refresh_token;
+    if (!refreshToken) {
+      throw new UnauthorizedException('No refresh token provided');
+    }
 
-  /**
-   * Handles GET /auth/profile requests.
-   * This route is protected by the global JwtAuthGuard.
-   * It returns the user object attached to the request by JwtStrategy.validate().
-   */
+    const tokens = await this.authService.refreshTokens(refreshToken);
+    
+    // Set new tokens in cookies
+    res.cookie('jwt', tokens.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000,
+      path: '/'
+    });
+    
+    res.cookie('refresh_token', tokens.refresh_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/auth/refresh'
+    });
+    
+    return { message: 'Tokens refreshed successfully' };
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  async logout(@Request() req: any, @Res({ passthrough: true }) res: Response) {
+    const refreshToken = req.cookies?.refresh_token;
+    if (refreshToken) {
+      await this.authService.logout(refreshToken);
+    }
+    
+    res.clearCookie('jwt', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/'
+    });
+    
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/auth/refresh'
+    });
+    
+    return { message: 'Logged out successfully' };
+  }
+
   @Get('profile')
   getProfile(@Request() req: { user: Omit<User, 'password'> }) {
-    // req.user is populated by the JwtAuthGuard/JwtStrategy
     return req.user;
   }
 }
