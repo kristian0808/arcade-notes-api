@@ -2,9 +2,13 @@ import { NestFactory, Reflector } from '@nestjs/core'; // Import Reflector
 import { AppModule } from './app.module';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { JwtAuthGuard } from './auth/jwt-auth.guard'; // Import JwtAuthGuard
+import * as cookieParser from 'cookie-parser'; // Import cookie-parser
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
+
+    // Add cookie parser middleware BEFORE other configurations that might need it
+    app.use(cookieParser());
 
     // Set global prefix
     app.setGlobalPrefix('api');

@@ -4,22 +4,32 @@ import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { ConfigService } from '@nestjs/config'; // Import ConfigService
 import { LocalStrategy } from './local.strategy'; // Import LocalStrategy
 import { JwtStrategy } from './jwt.strategy'; // Import JwtStrategy
+import { MongooseModule } from '@nestjs/mongoose';
+import { RefreshToken, RefreshTokenSchema } from './schemas/refresh-token.schema';
 
-// TODO: Move secret and expiration to configuration (e.g., .env file)
-export const jwtConstants = {
-  secret: 'YOUR_SECRET_KEY', // Replace with a strong secret key!
-};
+// Removed jwtConstants export
 
 @Module({
   imports: [
     UsersModule,
-    PassportModule, // Import PassportModule
-    JwtModule.register({
-      global: true, // Make JwtService available globally
-      secret: jwtConstants.secret,
-      signOptions: { expiresIn: '60m' }, // Example: Token expires in 60 minutes
+    PassportModule,
+    MongooseModule.forFeature([
+      { name: RefreshToken.name, schema: RefreshTokenSchema }
+    ]),
+    JwtModule.registerAsync({
+      global: true,
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+        signOptions: {
+          expiresIn: configService.get<string>('JWT_EXPIRY', '15m'),
+          issuer: configService.get<string>('JWT_ISSUER', 'icafe-notes'),
+          audience: configService.get<string>('JWT_AUDIENCE', 'icafe-notes-client')
+        },
+      }),
     }),
   ],
   providers: [AuthService, LocalStrategy, JwtStrategy], // Register strategies
