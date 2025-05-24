@@ -13,6 +13,7 @@ import { WebsocketsModule } from './websockets/websockets.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { CacheModule } from './cache/cache.module';
 
 @Module({
   imports: [
@@ -29,7 +30,7 @@ import { UsersModule } from './users/users.module';
     TabsModule,
     ProductsModule,
     ScheduleModule.forRoot(), // Schedule module for cron jobs @Interval
-    WebsocketsModule, AuthModule, UsersModule
+    WebsocketsModule, AuthModule, UsersModule, CacheModule
   ],
   controllers: [AppController],
   providers: [AppService],

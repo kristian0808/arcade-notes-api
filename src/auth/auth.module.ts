@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common'; // Added forwardRef
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
@@ -9,6 +9,7 @@ import { LocalStrategy } from './local.strategy'; // Import LocalStrategy
 import { JwtStrategy } from './jwt.strategy'; // Import JwtStrategy
 import { MongooseModule } from '@nestjs/mongoose';
 import { RefreshToken, RefreshTokenSchema } from './schemas/refresh-token.schema';
+import { CacheModule } from '../cache/cache.module'; // Added CacheModule import
 
 // Removed jwtConstants export
 
@@ -16,6 +17,7 @@ import { RefreshToken, RefreshTokenSchema } from './schemas/refresh-token.schema
   imports: [
     UsersModule,
     PassportModule,
+    forwardRef(() => CacheModule), // Added CacheModule to imports
     MongooseModule.forFeature([
       { name: RefreshToken.name, schema: RefreshTokenSchema }
     ]),

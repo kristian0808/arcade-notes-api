@@ -26,7 +26,7 @@ export class IcafeService {
         private readonly configService: ConfigService,
         @Inject(forwardRef(() => TabsService))
         private readonly tabsService: TabsService,
-        @InjectModel(Note.name) private noteModel: Model<NoteDocument>,
+        @InjectModel(Note.name) private noteModel: Model<NoteDocument>
     ) {
         // Retrieve credentials once during service initialization
         this.cafeId = this.configService.get<string>('ICAFE_CAFE_ID');
@@ -405,7 +405,7 @@ export class IcafeService {
         // If we've exhausted all pages and found no matches
         this.logger.warn(`No members found matching account name: ${accountName} after checking ${currentPage} pages`);
         throw new NotFoundException(`Member with account name '${accountName}' not found`);
-    }
+  }
 
     /**
      * Fetches the list and status of all PCs from iCafeCloud.
@@ -512,16 +512,11 @@ export class IcafeService {
         }
     }
 
-    /**
-     * Fetches all members from iCafeCloud.
-     * @returns Promise<any[]> Array of all members from iCafeCloud.
-     * @throws HttpException on API error.
-     */
     async getAllMembers(): Promise<any[]> {
+        this.logger.log('Fetching all members directly without cache');
         const url = `${this.baseUrl}/${this.cafeId}/members`;
         let currentPage = 1;
         let allMembers: any[] = [];
-        let hasMoreResults = true;
 
         // First request to get total pages info
         const requestConfig = {
