@@ -1,4 +1,5 @@
-import { Controller, Get, Param, Query, NotFoundException, InternalServerErrorException, ParseIntPipe, Logger, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Param, Query, NotFoundException, InternalServerErrorException, ParseIntPipe, Logger, BadRequestException, UseInterceptors } from '@nestjs/common';
+import { CacheInterceptor } from '@nestjs/cache-manager';
 import { IcafeService } from '../icafe/icafe.service';
 import { MemberResponseDto } from '../notes/dto/icafeMember.dto';
 import { MemberRankingsQueryDto, TimeframeEnum } from './dto/member-rankings-query.dto';
@@ -30,6 +31,7 @@ export class MembersController {
     }
     //Members rankings
     @Get('rankings')
+    @UseInterceptors(CacheInterceptor)
     async getMemberRankings(
       @Query() query: MemberRankingsQueryDto
     ): Promise<MemberRankingDto[]> {
@@ -60,6 +62,7 @@ export class MembersController {
     }
 
     @Get()
+    @UseInterceptors(CacheInterceptor)
     async getAllMembers(): Promise<MemberResponseDto[]> {
         this.logger.log('Fetching all members');
         try {
