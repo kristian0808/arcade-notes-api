@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Inject, forwardRef } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/schemas/user.schema';
 import { JwtService } from '@nestjs/jwt';
@@ -7,6 +7,7 @@ import { Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { RefreshToken, RefreshTokenDocument } from './schemas/refresh-token.schema';
+import { CacheRefreshService } from '../cache/cache-refresh.service'; // Added import
 
 interface TokenResponse {
   access_token: string;
@@ -19,6 +20,8 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     @InjectModel(RefreshToken.name) private refreshTokenModel: Model<RefreshTokenDocument>,
+    @Inject(forwardRef(() => CacheRefreshService)) // Added injection
+    private cacheRefreshService: CacheRefreshService, // Added injection
   ) {}
 
   async validateUser(username: string, pass: string): Promise<Omit<User, 'password'> | null> {
@@ -49,6 +52,13 @@ export class AuthService {
       token: refreshToken,
       userId: user._id,
       expiresAt: expiresAt,
+    });
+
+    // Trigger cache refresh for all ranking timeframes
+    // We don't need to await this, let it run in the background
+    this.cacheRefreshService.refreshAllRankingTimeframesCache().catch(error => {
+      // Optionally log an error if the background cache refresh fails
+      console.error('Error during background cache refresh on login:', error);
     });
     
     return {
