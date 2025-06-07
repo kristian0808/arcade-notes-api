@@ -17,6 +17,7 @@ async function bootstrap() {
   app.enableCors({
     origin: process.env.NODE_ENV === 'production' 
       ? [
+          'https://arcade-notes-frontend-git-dev-kristians-projects-1c41cd58.vercel.app',
           process.env.FRONTEND_URL || 'https://your-frontend-domain.netlify.app',
           process.env.FRONTEND_URL_ALT || 'https://your-frontend-domain.vercel.app'
         ]
