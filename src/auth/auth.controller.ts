@@ -1,4 +1,15 @@
-import { Controller, Post, UseGuards, Request, HttpCode, HttpStatus, Get, Body, Res, UnauthorizedException } from '@nestjs/common'; // Added UnauthorizedException
+import {
+  Controller,
+  Post,
+  UseGuards,
+  Request,
+  HttpCode,
+  HttpStatus,
+  Get,
+  Body,
+  Res,
+  UnauthorizedException,
+} from '@nestjs/common'; // Added UnauthorizedException
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './local-auth.guard';
 import { User } from '../users/schemas/user.schema';
@@ -13,57 +24,63 @@ export class AuthController {
   @UseGuards(LocalAuthGuard)
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  async login(@Request() req: { user: Omit<User, 'password'> }, @Res({ passthrough: true }) res: Response) {
+  async login(
+    @Request() req: { user: Omit<User, 'password'> },
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const tokens = await this.authService.login(req.user);
-    
-    // Set HttpOnly cookies
+
+    // Set HttpOnly cookies with cross-origin support
     res.cookie('jwt', tokens.access_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 15 * 60 * 1000, // 15 minutes
-      path: '/'
+      path: '/',
     });
-    
+
     res.cookie('refresh_token', tokens.refresh_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      path: '/auth/refresh' // Only available for refresh endpoint
+      path: '/auth/refresh', // Only available for refresh endpoint
     });
-    
+
     return { message: 'Login successful' };
   }
 
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(@Request() req: any, @Res({ passthrough: true }) res: Response) {
+  async refresh(
+    @Request() req: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const refreshToken = req.cookies?.refresh_token;
     if (!refreshToken) {
       throw new UnauthorizedException('No refresh token provided');
     }
 
     const tokens = await this.authService.refreshTokens(refreshToken);
-    
-    // Set new tokens in cookies
+
+    // Set new tokens in cookies with cross-origin support
     res.cookie('jwt', tokens.access_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 15 * 60 * 1000,
-      path: '/'
+      path: '/',
     });
-    
+
     res.cookie('refresh_token', tokens.refresh_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: '/auth/refresh'
+      path: '/auth/refresh',
     });
-    
+
     return { message: 'Tokens refreshed successfully' };
   }
 
@@ -74,21 +91,21 @@ export class AuthController {
     if (refreshToken) {
       await this.authService.logout(refreshToken);
     }
-    
+
     res.clearCookie('jwt', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/'
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path: '/',
     });
-    
+
     res.clearCookie('refresh_token', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      path: '/auth/refresh'
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path: '/auth/refresh',
     });
-    
+
     return { message: 'Logged out successfully' };
   }
 
