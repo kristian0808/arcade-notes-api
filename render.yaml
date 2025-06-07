@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: arcade-notes-api
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /api/v1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRY
+        value: 15m
+      - key: JWT_ISSUER
+        value: arcade-notes-api
+      - key: JWT_AUDIENCE
+        value: arcade-notes-client
+      - key: INITIAL_ADMIN_USERNAME
+        value: admin
+      # Note: You'll need to add these manually in Render dashboard:
+      # - DATABASE_URL (from MongoDB Atlas)
+      # - INITIAL_ADMIN_PASSWORD
+      # - ICAFE_CAFE_ID  
+      # - ICAFE_AUTH_TOKEN
+      # - FRONTEND_URL
