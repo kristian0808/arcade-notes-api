@@ -30,13 +30,14 @@ export class AuthController {
   ) {
     const tokens = await this.authService.login(req.user);
 
-    // Set HttpOnly cookies with cross-origin support
+    // Set HttpOnly cookies with cross-origin support and incognito compatibility
     res.cookie('jwt', tokens.access_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 15 * 60 * 1000, // 15 minutes
       path: '/',
+      partitioned: process.env.NODE_ENV === 'production', // Enable for incognito mode support
     });
 
     res.cookie('refresh_token', tokens.refresh_token, {
@@ -45,6 +46,7 @@ export class AuthController {
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/auth/refresh', // Only available for refresh endpoint
+      partitioned: process.env.NODE_ENV === 'production', // Enable for incognito mode support
     });
 
     return { message: 'Login successful' };
@@ -64,13 +66,14 @@ export class AuthController {
 
     const tokens = await this.authService.refreshTokens(refreshToken);
 
-    // Set new tokens in cookies with cross-origin support
+    // Set new tokens in cookies with cross-origin support and incognito compatibility
     res.cookie('jwt', tokens.access_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 15 * 60 * 1000,
       path: '/',
+      partitioned: process.env.NODE_ENV === 'production', // Enable for incognito mode support
     });
 
     res.cookie('refresh_token', tokens.refresh_token, {
@@ -79,6 +82,7 @@ export class AuthController {
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: '/auth/refresh',
+      partitioned: process.env.NODE_ENV === 'production', // Enable for incognito mode support
     });
 
     return { message: 'Tokens refreshed successfully' };
@@ -97,6 +101,7 @@ export class AuthController {
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       path: '/',
+      partitioned: process.env.NODE_ENV === 'production', // Match cookie setting attributes
     });
 
     res.clearCookie('refresh_token', {
@@ -104,6 +109,7 @@ export class AuthController {
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       path: '/auth/refresh',
+      partitioned: process.env.NODE_ENV === 'production', // Match cookie setting attributes
     });
 
     return { message: 'Logged out successfully' };
