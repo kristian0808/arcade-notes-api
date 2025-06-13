@@ -324,6 +324,28 @@ export class TabsService {
   }
 
   /**
+   * Get members with active tabs including tab summary information
+   */
+  async getActiveMembersWithTabs() {
+    this.logger.log('Fetching members with active tabs');
+
+    const activeTabs = await this.tabModel
+      .find({ status: 'active' })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    return activeTabs.map(tab => ({
+      memberId: tab.memberId,
+      memberAccount: tab.memberAccount,
+      pcName: tab.pcName,
+      totalAmount: tab.totalAmount,
+      itemCount: tab.items.length,
+      createdAt: tab.createdAt,
+      tabId: tab._id.toString(),
+    }));
+  }
+
+  /**
    * Check if a member has an active tab
    */
   async hasActiveTab(memberId: number): Promise<boolean> {
