@@ -13,7 +13,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   ) {
     super({
       // Define a custom extractor function
-      jwtFromRequest: (request: any) => { // Use 'any' or import Request from express
+      jwtFromRequest: (request: any) => {
+        // Use 'any' or import Request from express
         let token = null;
         // Try to get token from the 'jwt' cookie
         if (request && request.cookies) {

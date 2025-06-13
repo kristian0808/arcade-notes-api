@@ -27,8 +27,13 @@ export class SeedingService implements OnModuleInit {
    * - INITIAL_ADMIN_PASSWORD
    */
   private async seedAdminUser() {
-    const adminUsername = this.configService.get<string>('INITIAL_ADMIN_USERNAME', 'admin'); // Default to 'admin'
-    const adminPassword = this.configService.get<string>('INITIAL_ADMIN_PASSWORD');
+    const adminUsername = this.configService.get<string>(
+      'INITIAL_ADMIN_USERNAME',
+      'admin',
+    ); // Default to 'admin'
+    const adminPassword = this.configService.get<string>(
+      'INITIAL_ADMIN_PASSWORD',
+    );
 
     if (!adminPassword) {
       this.logger.warn(
@@ -40,11 +45,20 @@ export class SeedingService implements OnModuleInit {
     try {
       const existingAdmin = await this.usersService.findOne(adminUsername);
       if (!existingAdmin) {
-        this.logger.log(`Initial admin user "${adminUsername}" not found. Creating...`);
-        await this.usersService.create({ username: adminUsername, password: adminPassword });
-        this.logger.log(`Initial admin user "${adminUsername}" created successfully.`);
+        this.logger.log(
+          `Initial admin user "${adminUsername}" not found. Creating...`,
+        );
+        await this.usersService.create({
+          username: adminUsername,
+          password: adminPassword,
+        });
+        this.logger.log(
+          `Initial admin user "${adminUsername}" created successfully.`,
+        );
       } else {
-        this.logger.log(`Initial admin user "${adminUsername}" already exists.`);
+        this.logger.log(
+          `Initial admin user "${adminUsername}" already exists.`,
+        );
       }
     } catch (error) {
       this.logger.error('Error seeding initial admin user:', error);

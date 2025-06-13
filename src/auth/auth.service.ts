@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/schemas/user.schema';
 import { JwtService } from '@nestjs/jwt';
@@ -6,7 +11,10 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import { RefreshToken, RefreshTokenDocument } from './schemas/refresh-token.schema';
+import {
+  RefreshToken,
+  RefreshTokenDocument,
+} from './schemas/refresh-token.schema';
 import { CacheRefreshService } from '../cache/cache-refresh.service'; // Added import
 
 interface TokenResponse {
@@ -19,12 +27,16 @@ export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
-    @InjectModel(RefreshToken.name) private refreshTokenModel: Model<RefreshTokenDocument>,
+    @InjectModel(RefreshToken.name)
+    private refreshTokenModel: Model<RefreshTokenDocument>,
     @Inject(forwardRef(() => CacheRefreshService)) // Added injection
     private cacheRefreshService: CacheRefreshService, // Added injection
   ) {}
 
-  async validateUser(username: string, pass: string): Promise<Omit<User, 'password'> | null> {
+  async validateUser(
+    username: string,
+    pass: string,
+  ): Promise<Omit<User, 'password'> | null> {
     const user = await this.usersService.findOne(username);
     if (user && user.password) {
       const isMatch = await bcrypt.compare(pass, user.password);
@@ -38,15 +50,15 @@ export class AuthService {
 
   async login(user: any): Promise<TokenResponse> {
     const payload = { username: user.username, sub: user._id };
-    
+
     // Generate JWT access token
     const access_token = this.jwtService.sign(payload);
-    
+
     // Generate refresh token
     const refreshToken = crypto.randomBytes(40).toString('hex');
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
-    
+
     // Save refresh token to database
     await this.refreshTokenModel.create({
       token: refreshToken,
@@ -56,11 +68,13 @@ export class AuthService {
 
     // Trigger cache refresh for all ranking timeframes
     // We don't need to await this, let it run in the background
-    this.cacheRefreshService.refreshAllRankingTimeframesCache().catch(error => {
-      // Optionally log an error if the background cache refresh fails
-      console.error('Error during background cache refresh on login:', error);
-    });
-    
+    this.cacheRefreshService
+      .refreshAllRankingTimeframesCache()
+      .catch((error) => {
+        // Optionally log an error if the background cache refresh fails
+        console.error('Error during background cache refresh on login:', error);
+      });
+
     return {
       access_token,
       refresh_token: refreshToken,
@@ -69,10 +83,10 @@ export class AuthService {
 
   async refreshTokens(refreshToken: string): Promise<TokenResponse> {
     // Find refresh token in database
-    const token = await this.refreshTokenModel.findOne({ 
+    const token = await this.refreshTokenModel.findOne({
       token: refreshToken,
       isRevoked: false,
-      expiresAt: { $gt: new Date() }
+      expiresAt: { $gt: new Date() },
     });
 
     if (!token) {
@@ -92,19 +106,19 @@ export class AuthService {
 
     // Generate new tokens (token rotation)
     const payload = { username: user.username, sub: user._id };
-    
+
     const access_token = this.jwtService.sign(payload);
-    
+
     const newRefreshToken = crypto.randomBytes(40).toString('hex');
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
-    
+
     await this.refreshTokenModel.create({
       token: newRefreshToken,
       userId: user._id,
       expiresAt: expiresAt,
     });
-    
+
     return {
       access_token,
       refresh_token: newRefreshToken,
@@ -115,7 +129,7 @@ export class AuthService {
     // Revoke refresh token
     await this.refreshTokenModel.updateOne(
       { token: refreshToken },
-      { isRevoked: true, revokedAt: new Date() }
+      { isRevoked: true, revokedAt: new Date() },
     );
   }
 }

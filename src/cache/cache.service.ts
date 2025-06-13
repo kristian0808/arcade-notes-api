@@ -23,7 +23,10 @@ export class CacheService {
       }
       return value;
     } catch (error) {
-      this.logger.error(`Error getting cache for key ${key}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error getting cache for key ${key}: ${error.message}`,
+        error.stack,
+      );
       return undefined;
     }
   }
@@ -37,9 +40,14 @@ export class CacheService {
   async set<T>(key: string, value: T, ttl?: number): Promise<void> {
     try {
       await this.cacheManager.set(key, value, ttl);
-      this.logger.debug(`Cached data for key: ${key}${ttl ? `, TTL: ${ttl}ms` : ''}`);
+      this.logger.debug(
+        `Cached data for key: ${key}${ttl ? `, TTL: ${ttl}ms` : ''}`,
+      );
     } catch (error) {
-      this.logger.error(`Error setting cache for key ${key}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error setting cache for key ${key}: ${error.message}`,
+        error.stack,
+      );
       // Continue execution - don't throw error for cache operations
     }
   }
@@ -53,7 +61,10 @@ export class CacheService {
       await this.cacheManager.del(key);
       this.logger.debug(`Deleted cache for key: ${key}`);
     } catch (error) {
-      this.logger.error(`Error deleting cache for key ${key}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error deleting cache for key ${key}: ${error.message}`,
+        error.stack,
+      );
       // Continue execution - don't throw error for cache operations
     }
   }
@@ -78,14 +89,18 @@ export class CacheService {
    * @param ttl Optional Time-to-live in milliseconds
    * @returns The cached or newly generated value
    */
-  async getOrSet<T>(key: string, factory: () => Promise<T>, ttl?: number): Promise<T> {
+  async getOrSet<T>(
+    key: string,
+    factory: () => Promise<T>,
+    ttl?: number,
+  ): Promise<T> {
     try {
       // Try to get from cache first
       const cachedValue = await this.get<T>(key);
       if (cachedValue !== undefined) {
         return cachedValue;
       }
-      
+
       // Generate the value
       this.logger.debug(`Generating value for cache key: ${key}`);
       try {
@@ -93,11 +108,17 @@ export class CacheService {
         await this.set(key, generatedValue, ttl);
         return generatedValue;
       } catch (error) {
-        this.logger.error(`Error generating value for cache key ${key}: ${error.message}`, error.stack);
+        this.logger.error(
+          `Error generating value for cache key ${key}: ${error.message}`,
+          error.stack,
+        );
         throw error;
       }
     } catch (error) {
-      this.logger.error(`Cache error for key ${key}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Cache error for key ${key}: ${error.message}`,
+        error.stack,
+      );
       // If there's a cache error, just execute the factory function directly
       return await factory();
     }

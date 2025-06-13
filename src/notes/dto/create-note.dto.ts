@@ -1,20 +1,19 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateNoteDto {
-    @IsString()
-    @IsNotEmpty()
-    content: string;
+  @IsString()
+  @IsNotEmpty()
+  content: string;
 
-    @IsOptional()
-    @IsString()
-    pcName?: string; 
+  @IsOptional()
+  @IsString()
+  pcName?: string;
 
-    @IsOptional()
-    @IsNumber()
-    memberId?: number;
+  @IsOptional()
+  @IsNumber()
+  memberId?: number;
 
-    @IsOptional()
-    @IsString()
-    memberAccount?: string;
-
+  @IsOptional()
+  @IsString()
+  memberAccount?: string;
 }

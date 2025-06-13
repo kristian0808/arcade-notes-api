@@ -4,7 +4,7 @@ export enum TimeframeEnum {
   DAY = 'day',
   WEEK = 'week',
   MONTH = 'month',
-  ALL = 'all'
+  ALL = 'all',
 }
 
 export class MemberRankingsQueryDto {

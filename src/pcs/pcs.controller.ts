@@ -1,39 +1,51 @@
-import { Controller, Get, Param, NotFoundException, InternalServerErrorException, Logger } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  NotFoundException,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { IcafeService } from '../icafe/icafe.service';
 import { Pc } from './dto/pc.dto';
 
 @Controller('pcs') // Removed 'api/' prefix
 export class PcsController {
-    private readonly logger = new Logger(PcsController.name);
-    constructor(private readonly icafeService: IcafeService) {}
+  private readonly logger = new Logger(PcsController.name);
+  constructor(private readonly icafeService: IcafeService) {}
 
-    @Get()
-    async getAllPcs(): Promise<Pc[]> {
-        try {
-            this.logger.log('Received request for GET /api/pcs'); // Log message might need update later
-            const pcs = await this.icafeService.getPcsWithUserInfo();
-            return pcs;
-        } catch (error) {
-            this.logger.error(`Failed to get PC list: ${error.message}`, error.stack);
-            throw new InternalServerErrorException('Failed to retrieve PC list');
-        }
+  @Get()
+  async getAllPcs(): Promise<Pc[]> {
+    try {
+      this.logger.log('Received request for GET /api/pcs'); // Log message might need update later
+      const pcs = await this.icafeService.getPcsWithUserInfo();
+      return pcs;
+    } catch (error) {
+      this.logger.error(`Failed to get PC list: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('Failed to retrieve PC list');
     }
+  }
 
-    @Get(':pcName')
-    async getPcDetails(@Param('pcName') pcName: string): Promise<Pc> {
-        try {
-            this.logger.log(`Received request for GET /api/pcs/${pcName}`); // Log message might need update later
-            const pcDetail = await this.icafeService.getConsoleDetail(pcName);
-            if (!pcDetail) {
-                throw new NotFoundException(`PC '${pcName}' not found.`);
-            }
-            return pcDetail;
-        } catch (error) {
-            this.logger.error(`Failed to get PC detail for ${pcName}: ${error.message}`, error.stack);
-            if (error instanceof NotFoundException) {
-                throw error;
-            }
-            throw new InternalServerErrorException(`Failed to retrieve details for PC '${pcName}'`);
-        }
+  @Get(':pcName')
+  async getPcDetails(@Param('pcName') pcName: string): Promise<Pc> {
+    try {
+      this.logger.log(`Received request for GET /api/pcs/${pcName}`); // Log message might need update later
+      const pcDetail = await this.icafeService.getConsoleDetail(pcName);
+      if (!pcDetail) {
+        throw new NotFoundException(`PC '${pcName}' not found.`);
+      }
+      return pcDetail;
+    } catch (error) {
+      this.logger.error(
+        `Failed to get PC detail for ${pcName}: ${error.message}`,
+        error.stack,
+      );
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        `Failed to retrieve details for PC '${pcName}'`,
+      );
     }
+  }
 }

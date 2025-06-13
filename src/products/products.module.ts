@@ -6,6 +6,6 @@ import { IcafeModule } from 'src/icafe/icafe.module';
 @Module({
   imports: [IcafeModule],
   providers: [ProductsService],
-  controllers: [ProductsController]
+  controllers: [ProductsController],
 })
 export class ProductsModule {}

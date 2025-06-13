@@ -16,7 +16,10 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
    * Passport automatically calls this method with credentials from the request body.
    * It uses the validateUser method from AuthService to check credentials.
    */
-  async validate(username: string, password: string): Promise<Omit<User, 'password'>> {
+  async validate(
+    username: string,
+    password: string,
+  ): Promise<Omit<User, 'password'>> {
     const user = await this.authService.validateUser(username, password);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');

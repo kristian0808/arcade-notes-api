@@ -30,7 +30,10 @@ import { CacheModule } from './cache/cache.module';
     TabsModule,
     ProductsModule,
     ScheduleModule.forRoot(), // Schedule module for cron jobs @Interval
-    WebsocketsModule, AuthModule, UsersModule, CacheModule
+    WebsocketsModule,
+    AuthModule,
+    UsersModule,
+    CacheModule,
   ],
   controllers: [AppController],
   providers: [AppService],
