@@ -94,6 +94,12 @@ export class TabsController {
     return this.tabsService.closeTab(id);
   }
 
+  @Get('active-members')
+  async getActiveMembersWithTabs() {
+    this.logger.log('Getting members with active tabs');
+    return this.tabsService.getActiveMembersWithTabs();
+  }
+
   @Get()
   async getTabs(
     @Query('status') status?: string,
