@@ -15,16 +15,19 @@ async function bootstrap() {
 
   // Production-ready CORS configuration
   app.enableCors({
-    origin: process.env.NODE_ENV === 'production' 
-      ? [
-          /^https:\/\/.*\.vercel\.app$/,  // Allow any Vercel deployment domain
-          process.env.FRONTEND_URL || 'https://your-frontend-domain.netlify.app',
-          process.env.FRONTEND_URL_ALT || 'https://your-frontend-domain.vercel.app'
-        ]
-      : [
-          'http://localhost:5173', // Vite dev server default
-          'http://127.0.0.1:5173',
-        ],
+    origin:
+      process.env.NODE_ENV === 'production'
+        ? [
+            /^https:\/\/.*\.vercel\.app$/, // Allow any Vercel deployment domain
+            process.env.FRONTEND_URL ||
+              'https://your-frontend-domain.netlify.app',
+            process.env.FRONTEND_URL_ALT ||
+              'https://your-frontend-domain.vercel.app',
+          ]
+        : [
+            'http://localhost:5173', // Vite dev server default
+            'http://127.0.0.1:5173',
+          ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });

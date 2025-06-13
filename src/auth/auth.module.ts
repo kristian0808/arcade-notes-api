@@ -8,7 +8,10 @@ import { ConfigService } from '@nestjs/config'; // Import ConfigService
 import { LocalStrategy } from './local.strategy'; // Import LocalStrategy
 import { JwtStrategy } from './jwt.strategy'; // Import JwtStrategy
 import { MongooseModule } from '@nestjs/mongoose';
-import { RefreshToken, RefreshTokenSchema } from './schemas/refresh-token.schema';
+import {
+  RefreshToken,
+  RefreshTokenSchema,
+} from './schemas/refresh-token.schema';
 import { CacheModule } from '../cache/cache.module'; // Added CacheModule import
 
 // Removed jwtConstants export
@@ -19,7 +22,7 @@ import { CacheModule } from '../cache/cache.module'; // Added CacheModule import
     PassportModule,
     forwardRef(() => CacheModule), // Added CacheModule to imports
     MongooseModule.forFeature([
-      { name: RefreshToken.name, schema: RefreshTokenSchema }
+      { name: RefreshToken.name, schema: RefreshTokenSchema },
     ]),
     JwtModule.registerAsync({
       global: true,
@@ -29,7 +32,10 @@ import { CacheModule } from '../cache/cache.module'; // Added CacheModule import
         signOptions: {
           expiresIn: configService.get<string>('JWT_EXPIRY', '15m'),
           issuer: configService.get<string>('JWT_ISSUER', 'icafe-notes'),
-          audience: configService.get<string>('JWT_AUDIENCE', 'icafe-notes-client')
+          audience: configService.get<string>(
+            'JWT_AUDIENCE',
+            'icafe-notes-client',
+          ),
         },
       }),
     }),

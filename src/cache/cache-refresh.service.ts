@@ -11,7 +11,7 @@ export class CacheRefreshService {
   // Assuming '/api/v1' is your global prefix. Adjust if necessary.
   // If you don't have a global prefix or it's configured differently,
   // these keys might need to be just '/members/rankings?timeframe=...' and '/members'
-  private readonly API_V1_PREFIX = '/api/v1'; 
+  private readonly API_V1_PREFIX = '/api/v1';
 
   constructor(
     @Inject(forwardRef(() => IcafeService))
@@ -28,27 +28,43 @@ export class CacheRefreshService {
     const timeframe = TimeframeEnum.MONTH;
     // Construct the cache key exactly as CacheInterceptor would for this request
     const cacheKey = `${this.API_V1_PREFIX}/members/rankings?timeframe=${timeframe}`;
-    this.logger.log(`Warming cache for member rankings (timeframe: ${timeframe}) with key: ${cacheKey}`);
-    
+    this.logger.log(
+      `Warming cache for member rankings (timeframe: ${timeframe}) with key: ${cacheKey}`,
+    );
+
     try {
-      const rankingsData = await this.icafeService.calculateMemberRankings(timeframe);
+      const rankingsData =
+        await this.icafeService.calculateMemberRankings(timeframe);
       // Set the data in cache with the same TTL as defined in CacheModule
       await this.cacheManager.set(cacheKey, rankingsData, 5 * 60);
-      this.logger.log(`Successfully warmed cache for member rankings (timeframe: ${timeframe})`);
+      this.logger.log(
+        `Successfully warmed cache for member rankings (timeframe: ${timeframe})`,
+      );
     } catch (error) {
-      this.logger.error(`Error warming member rankings cache (timeframe: ${timeframe}): ${error.message}`, error.stack);
+      this.logger.error(
+        `Error warming member rankings cache (timeframe: ${timeframe}): ${error.message}`,
+        error.stack,
+      );
     }
   }
 
   async refreshRankingCacheForTimeframe(timeframe: TimeframeEnum) {
     const cacheKey = `${this.API_V1_PREFIX}/members/rankings?timeframe=${timeframe}`;
-    this.logger.log(`Refreshing cache for member rankings (timeframe: ${timeframe}) with key: ${cacheKey}`);
+    this.logger.log(
+      `Refreshing cache for member rankings (timeframe: ${timeframe}) with key: ${cacheKey}`,
+    );
     try {
-      const rankingsData = await this.icafeService.calculateMemberRankings(timeframe);
+      const rankingsData =
+        await this.icafeService.calculateMemberRankings(timeframe);
       await this.cacheManager.set(cacheKey, rankingsData, 5 * 60); // 5 minutes TTL
-      this.logger.log(`Successfully refreshed cache for member rankings (timeframe: ${timeframe})`);
+      this.logger.log(
+        `Successfully refreshed cache for member rankings (timeframe: ${timeframe})`,
+      );
     } catch (error) {
-      this.logger.error(`Error refreshing member rankings cache (timeframe: ${timeframe}): ${error.message}`, error.stack);
+      this.logger.error(
+        `Error refreshing member rankings cache (timeframe: ${timeframe}): ${error.message}`,
+        error.stack,
+      );
     }
   }
 
@@ -60,7 +76,7 @@ export class CacheRefreshService {
     }
     this.logger.log('Completed refresh for all ranking timeframes cache.');
   }
-  
+
   /**
    * Refresh all members cache every 4 minutes.
    */
@@ -68,13 +84,16 @@ export class CacheRefreshService {
   async refreshAllMembersCache() {
     const cacheKey = `${this.API_V1_PREFIX}/members`;
     this.logger.log(`Warming cache for all members with key: ${cacheKey}`);
-    
+
     try {
       const membersData = await this.icafeService.getAllMembers();
       await this.cacheManager.set(cacheKey, membersData, 5 * 60);
       this.logger.log('Successfully warmed cache for all members');
     } catch (error) {
-      this.logger.error(`Error warming all members cache: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error warming all members cache: ${error.message}`,
+        error.stack,
+      );
     }
   }
 }
