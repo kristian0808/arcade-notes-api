@@ -34,6 +34,12 @@ export class TabsController {
     return this.tabsService.createTab(createTabDto);
   }
 
+  @Get('active-members')
+  async getActiveMembersWithTabs() {
+    this.logger.log('Getting members with active tabs');
+    return this.tabsService.getActiveMembersWithTabs();
+  }
+
   @Get('member/:memberId/active')
   async getActiveTabForMember(
     @Param('memberId', ParseIntPipe) memberId: number,
@@ -92,12 +98,6 @@ export class TabsController {
   async closeTab(@Param('id') id: string): Promise<TabResponseDto> {
     this.logger.log(`Closing tab with ID: ${id}`);
     return this.tabsService.closeTab(id);
-  }
-
-  @Get('active-members')
-  async getActiveMembersWithTabs() {
-    this.logger.log('Getting members with active tabs');
-    return this.tabsService.getActiveMembersWithTabs();
   }
 
   @Get()
