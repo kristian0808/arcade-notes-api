@@ -1,9 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { IcafeModule } from 'src/icafe/icafe.module';
+import { TabsModule } from 'src/tabs/tabs.module';
 import { DashboardGateway } from './dashboard.gateway';
 
 @Module({
-  imports: [IcafeModule],
+  imports: [IcafeModule, forwardRef(() => TabsModule)],
   providers: [DashboardGateway],
   exports: [DashboardGateway],
 })
