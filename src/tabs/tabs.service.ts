@@ -3,6 +3,8 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -16,7 +18,11 @@ import { UpdateTabItemQuantityDto } from './dto/update-tab-item-quantity.dto';
 export class TabsService {
   private readonly logger = new Logger(TabsService.name);
 
-  constructor(@InjectModel(Tab.name) private tabModel: Model<TabDocument>) {}
+  constructor(
+    @InjectModel(Tab.name) private tabModel: Model<TabDocument>,
+    @Inject(forwardRef(() => 'DashboardGateway'))
+    private dashboardGateway: any,
+  ) {}
 
   /**
    * Create a new tab for a member
@@ -51,6 +57,13 @@ export class TabsService {
 
     const savedTab = await newTab.save();
     this.logger.log(`Tab created with ID: ${savedTab._id}`);
+
+    // Broadcast active tabs update via WebSocket
+    try {
+      await this.dashboardGateway?.broadcastActiveTabsUpdate();
+    } catch (error) {
+      this.logger.warn('Failed to broadcast active tabs update after tab creation', error);
+    }
 
     return this.mapToTabResponse(savedTab);
   }
@@ -142,6 +155,13 @@ export class TabsService {
       `Item added to tab ID: ${tabId}, new total: ${tab.totalAmount}`,
     );
 
+    // Broadcast active tabs update via WebSocket
+    try {
+      await this.dashboardGateway?.broadcastActiveTabsUpdate();
+    } catch (error) {
+      this.logger.warn('Failed to broadcast active tabs update after item addition', error);
+    }
+
     return newItem;
   }
 
@@ -191,6 +211,13 @@ export class TabsService {
     this.logger.log(
       `Item quantity updated in tab ID: ${tabId}, new total: ${tab.totalAmount}`,
     );
+
+    // Broadcast active tabs update via WebSocket
+    try {
+      await this.dashboardGateway?.broadcastActiveTabsUpdate();
+    } catch (error) {
+      this.logger.warn('Failed to broadcast active tabs update after quantity update', error);
+    }
 
     return this.mapToTabResponse(tab);
   }
@@ -242,6 +269,13 @@ export class TabsService {
       `Item removed from tab ID: ${tabId}, new total: ${tab.totalAmount}`,
     );
 
+    // Broadcast active tabs update via WebSocket
+    try {
+      await this.dashboardGateway?.broadcastActiveTabsUpdate();
+    } catch (error) {
+      this.logger.warn('Failed to broadcast active tabs update after item removal', error);
+    }
+
     return this.mapToTabResponse(tab);
   }
 
@@ -274,6 +308,13 @@ export class TabsService {
     this.logger.log(
       `Tab closed successfully: ${tabId}, final amount: ${tab.totalAmount}`,
     );
+
+    // Broadcast active tabs update via WebSocket
+    try {
+      await this.dashboardGateway?.broadcastActiveTabsUpdate();
+    } catch (error) {
+      this.logger.warn('Failed to broadcast active tabs update after tab closure', error);
+    }
 
     return this.mapToTabResponse(tab);
   }
