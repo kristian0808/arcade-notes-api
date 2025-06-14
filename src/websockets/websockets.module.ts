@@ -5,7 +5,13 @@ import { DashboardGateway } from './dashboard.gateway';
 
 @Module({
   imports: [IcafeModule, forwardRef(() => TabsModule)],
-  providers: [DashboardGateway],
-  exports: [DashboardGateway],
+  providers: [
+    DashboardGateway,
+    {
+      provide: 'DashboardGateway',
+      useExisting: DashboardGateway,
+    },
+  ],
+  exports: [DashboardGateway, 'DashboardGateway'],
 })
 export class WebsocketsModule {}
