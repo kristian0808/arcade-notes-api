@@ -8,6 +8,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { IcafeService } from '../icafe/icafe.service';
+import { TabsService } from '../tabs/tabs.service';
 import { Interval } from '@nestjs/schedule';
 
 @WebSocketGateway({
@@ -25,7 +26,10 @@ export class DashboardGateway
   @WebSocketServer()
   server: Server;
 
-  constructor(private readonly icafeService: IcafeService) {}
+  constructor(
+    private readonly icafeService: IcafeService,
+    private readonly tabsService: TabsService,
+  ) {}
 
   afterInit() {
     this.logger.log('WebSocket Gateway initialized');
@@ -45,6 +49,11 @@ export class DashboardGateway
     // Also send initial member updates to the new client
     this.handleMemberUpdates().catch((err) =>
       this.logger.error('Error sending initial member updates', err),
+    );
+
+    // Send initial active tab data to the new client
+    this.handleActiveTabsUpdate().catch((err) =>
+      this.logger.error('Error sending initial active tabs update', err),
     );
   }
 
@@ -84,6 +93,37 @@ export class DashboardGateway
       } catch (error) {
         this.logger.error('Failed to fetch member updates:', error);
       }
+    }
+  }
+
+  @Interval(15000) // Poll every 15 seconds for active tabs
+  async handleActiveTabsUpdate() {
+    // Only fetch and emit if there are connected clients
+    if (this.clientCount > 0) {
+      try {
+        // Get active tab count and active members with tabs
+        const activeMembersWithTabs = await this.tabsService.getActiveMembersWithTabs();
+        const activeTabsCount = activeMembersWithTabs.length;
+        
+        this.logger.debug(
+          `Broadcasting active tabs update to ${this.clientCount} clients - Count: ${activeTabsCount}`,
+        );
+        
+        // Emit both the count and the detailed list
+        this.server.emit('active_tabs_update', {
+          count: activeTabsCount,
+          activeMembersWithTabs: activeMembersWithTabs,
+        });
+      } catch (error) {
+        this.logger.error('Failed to fetch active tabs updates:', error);
+      }
+    }
+  }
+
+  // Method to broadcast immediate tab updates (called from tab operations)
+  async broadcastActiveTabsUpdate() {
+    if (this.clientCount > 0) {
+      await this.handleActiveTabsUpdate();
     }
   }
 }

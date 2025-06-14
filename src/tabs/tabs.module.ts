@@ -15,6 +15,7 @@ import { Tab, TabSchema } from 'src/notes/schemas/tab.schema';
       },
     ]),
     forwardRef(() => IcafeModule),
+    forwardRef(() => import('../websockets/websockets.module').then(m => m.WebsocketsModule)),
   ],
   controllers: [TabsController],
   providers: [TabsService],
