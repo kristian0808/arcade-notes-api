@@ -5,7 +5,7 @@ import { firstValueFrom, map, catchError } from 'rxjs';
 import { AxiosRequestConfig } from 'axios';
 import { Public } from 'src/auth/public.decorator';
 
-@Controller('api/v1/proxy')
+@Controller('proxy')
 export class ProxyController {
   private readonly logger = new Logger(ProxyController.name);
   private readonly baseUrl = 'https://api.icafecloud.com/api/v2/cafe';
