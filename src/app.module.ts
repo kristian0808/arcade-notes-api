@@ -14,6 +14,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CacheModule } from './cache/cache.module';
+import { ProxyModule } from './proxy/proxy.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { CacheModule } from './cache/cache.module';
     AuthModule,
     UsersModule,
     CacheModule,
+    ProxyModule,
   ],
   controllers: [AppController],
   providers: [AppService],
