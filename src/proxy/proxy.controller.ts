@@ -18,6 +18,13 @@ export class ProxyController {
   ) {
     this.cafeId = this.configService.get<string>('ICAFE_CAFE_ID');
     this.authToken = this.configService.get<string>('ICAFE_AUTH_TOKEN');
+
+    if (!this.cafeId || !this.authToken) {
+      this.logger.error('ICAFE_CAFE_ID or ICAFE_AUTH_TOKEN missing in configuration!');
+      throw new Error('Missing iCafeCloud credentials in environment variables.');
+    }
+
+    this.logger.log(`ProxyController initialized with cafe ID: ${this.cafeId}`);
   }
 
   private getRequestConfig(): AxiosRequestConfig {
@@ -32,12 +39,16 @@ export class ProxyController {
 
   // Generic proxy for any ICafe endpoint - GET requests
   @Public()
-  @Get('icafe/*')
+  @Get('icafe/*path')
   async proxyGetAny(
-    @Param('0') path: string,
+    @Param('path') path: string,
     @Query() queryParams: any,
   ): Promise<any> {
-    // Construct the full ICafe API URL
+    // Validate and construct the full ICafe API URL
+    if (!path) {
+      throw new Error('Path parameter is required');
+    }
+
     let fullPath = path;
     
     // If path doesn't start with cafe ID, prepend it
@@ -71,13 +82,17 @@ export class ProxyController {
 
   // Generic proxy for any ICafe endpoint - POST requests
   @Public()
-  @Post('icafe/*')
+  @Post('icafe/*path')
   async proxyPostAny(
-    @Param('0') path: string,
+    @Param('path') path: string,
     @Body() body: any,
     @Query() queryParams: any,
   ): Promise<any> {
-    // Construct the full ICafe API URL
+    // Validate and construct the full ICafe API URL
+    if (!path) {
+      throw new Error('Path parameter is required');
+    }
+
     let fullPath = path;
     
     // If path doesn't start with cafe ID, prepend it
@@ -112,13 +127,17 @@ export class ProxyController {
 
   // Generic proxy for any ICafe endpoint - PUT requests
   @Public()
-  @Put('icafe/*')
+  @Put('icafe/*path')
   async proxyPutAny(
-    @Param('0') path: string,
+    @Param('path') path: string,
     @Body() body: any,
     @Query() queryParams: any,
   ): Promise<any> {
-    // Construct the full ICafe API URL
+    // Validate and construct the full ICafe API URL
+    if (!path) {
+      throw new Error('Path parameter is required');
+    }
+
     let fullPath = path;
     
     // If path doesn't start with cafe ID, prepend it
@@ -153,12 +172,16 @@ export class ProxyController {
 
   // Generic proxy for any ICafe endpoint - DELETE requests
   @Public()
-  @Delete('icafe/*')
+  @Delete('icafe/*path')
   async proxyDeleteAny(
-    @Param('0') path: string,
+    @Param('path') path: string,
     @Query() queryParams: any,
   ): Promise<any> {
-    // Construct the full ICafe API URL
+    // Validate and construct the full ICafe API URL
+    if (!path) {
+      throw new Error('Path parameter is required');
+    }
+
     let fullPath = path;
     
     // If path doesn't start with cafe ID, prepend it
