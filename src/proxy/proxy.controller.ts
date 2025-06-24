@@ -39,9 +39,9 @@ export class ProxyController {
 
   // Generic proxy for any ICafe endpoint - GET requests
   @Public()
-  @Get('icafe/*path')
+  @Get('icafe/*splat')
   async proxyGetAny(
-    @Param('path') path: string,
+    @Param('splat') path: string,
     @Query() queryParams: any,
   ): Promise<any> {
     // Validate and construct the full ICafe API URL
@@ -58,8 +58,16 @@ export class ProxyController {
     
     const url = `${this.baseUrl}/${fullPath}`;
     
-    this.logger.log(`[GENERIC PROXY] GET ${url}`);
-    this.logger.log(`[GENERIC PROXY] Query params: ${JSON.stringify(queryParams)}`);
+    // 🔍 DETAILED DEBUGGING LOGS
+    this.logger.log(`[PROXY DEBUG] ==========================================`);
+    this.logger.log(`[PROXY DEBUG] Original path param: "${path}"`);
+    this.logger.log(`[PROXY DEBUG] Cafe ID: "${this.cafeId}"`);
+    this.logger.log(`[PROXY DEBUG] Full path constructed: "${fullPath}"`);
+    this.logger.log(`[PROXY DEBUG] Base URL: "${this.baseUrl}"`);
+    this.logger.log(`[PROXY DEBUG] Final URL: "${url}"`);
+    this.logger.log(`[PROXY DEBUG] Query params: ${JSON.stringify(queryParams)}`);
+    this.logger.log(`[PROXY DEBUG] Auth token (first 10 chars): "${this.authToken?.substring(0, 10)}..."`);
+    this.logger.log(`[PROXY DEBUG] ==========================================`);
 
     const requestConfig = {
       ...this.getRequestConfig(),
@@ -69,11 +77,16 @@ export class ProxyController {
     return firstValueFrom(
       this.httpService.get(url, requestConfig).pipe(
         map((response) => {
-          this.logger.log(`[GENERIC PROXY] GET success: ${response.status}`);
+          this.logger.log(`[PROXY DEBUG] ✅ SUCCESS - Status: ${response.status}`);
+          this.logger.log(`[PROXY DEBUG] ✅ Response headers: ${JSON.stringify(response.headers)}`);
+          this.logger.log(`[PROXY DEBUG] ✅ Response data preview: ${JSON.stringify(response.data).substring(0, 200)}...`);
           return response.data;
         }),
         catchError((error) => {
-          this.logger.error(`[GENERIC PROXY] GET error: ${error.message}`, error.stack);
+          this.logger.error(`[PROXY DEBUG] ❌ ERROR - Status: ${error.response?.status}`);
+          this.logger.error(`[PROXY DEBUG] ❌ Error message: ${error.message}`);
+          this.logger.error(`[PROXY DEBUG] ❌ Error response: ${JSON.stringify(error.response?.data)}`);
+          this.logger.error(`[PROXY DEBUG] ❌ Error config URL: ${error.config?.url}`);
           throw error;
         }),
       ),
@@ -82,9 +95,9 @@ export class ProxyController {
 
   // Generic proxy for any ICafe endpoint - POST requests
   @Public()
-  @Post('icafe/*path')
+  @Post('icafe/*splat')
   async proxyPostAny(
-    @Param('path') path: string,
+    @Param('splat') path: string,
     @Body() body: any,
     @Query() queryParams: any,
   ): Promise<any> {
@@ -127,9 +140,9 @@ export class ProxyController {
 
   // Generic proxy for any ICafe endpoint - PUT requests
   @Public()
-  @Put('icafe/*path')
+  @Put('icafe/*splat')
   async proxyPutAny(
-    @Param('path') path: string,
+    @Param('splat') path: string,
     @Body() body: any,
     @Query() queryParams: any,
   ): Promise<any> {
@@ -172,9 +185,9 @@ export class ProxyController {
 
   // Generic proxy for any ICafe endpoint - DELETE requests
   @Public()
-  @Delete('icafe/*path')
+  @Delete('icafe/*splat')
   async proxyDeleteAny(
-    @Param('path') path: string,
+    @Param('splat') path: string,
     @Query() queryParams: any,
   ): Promise<any> {
     // Validate and construct the full ICafe API URL
