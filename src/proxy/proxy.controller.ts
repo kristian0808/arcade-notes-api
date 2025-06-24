@@ -49,7 +49,8 @@ export class ProxyController {
       throw new Error('Path parameter is required');
     }
 
-    let fullPath = path;
+    // 🔧 FIX: Decode URL and fix comma issue
+    let fullPath = decodeURIComponent(path).replace(/,/g, '/');
     
     // If path doesn't start with cafe ID, prepend it
     if (!fullPath.startsWith(this.cafeId)) {
@@ -106,7 +107,8 @@ export class ProxyController {
       throw new Error('Path parameter is required');
     }
 
-    let fullPath = path;
+    // 🔧 FIX: Decode URL and fix comma issue
+    let fullPath = decodeURIComponent(path).replace(/,/g, '/');
     
     // If path doesn't start with cafe ID, prepend it
     if (!fullPath.startsWith(this.cafeId)) {
@@ -151,7 +153,8 @@ export class ProxyController {
       throw new Error('Path parameter is required');
     }
 
-    let fullPath = path;
+    // 🔧 FIX: Decode URL and fix comma issue
+    let fullPath = decodeURIComponent(path).replace(/,/g, '/');
     
     // If path doesn't start with cafe ID, prepend it
     if (!fullPath.startsWith(this.cafeId)) {
@@ -195,7 +198,8 @@ export class ProxyController {
       throw new Error('Path parameter is required');
     }
 
-    let fullPath = path;
+    // 🔧 FIX: Decode URL and fix comma issue
+    let fullPath = decodeURIComponent(path).replace(/,/g, '/');
     
     // If path doesn't start with cafe ID, prepend it
     if (!fullPath.startsWith(this.cafeId)) {
