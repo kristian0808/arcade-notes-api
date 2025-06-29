@@ -356,11 +356,16 @@ export class TabsService {
       memberAccount: tab.memberAccount,
       pcName: tab.pcName,
       status: tab.status,
+      paymentStatus: tab.paymentStatus,
+      paymentMethod: tab.paymentMethod,
+      icafeOrders: tab.icafeOrders || [],
+      failedItems: tab.failedItems || [],
       items: tab.items,
       totalAmount: tab.totalAmount,
       createdAt: tab.createdAt,
       updatedAt: tab.updatedAt,
       closedAt: tab.closedAt,
+      paidAt: tab.paidAt,
     };
   }
 

@@ -46,6 +46,41 @@ export class TabItem {
 
 export const TabItemSchema = SchemaFactory.createForClass(TabItem);
 
+@Schema()
+export class IcafeOrder {
+  @Prop({
+    type: String,
+    required: true,
+  })
+  orderId: string;
+
+  @Prop({
+    type: Object,
+    required: true,
+  })
+  orderResponse: any; // Full ICafe API response
+
+  @Prop({
+    type: [TabItemSchema],
+    required: true,
+  })
+  items: TabItem[]; // Items included in this specific order
+
+  @Prop({
+    type: Date,
+    default: Date.now,
+  })
+  createdAt: Date;
+
+  @Prop({
+    type: Number,
+    required: true,
+  })
+  amount: number;
+}
+
+export const IcafeOrderSchema = SchemaFactory.createForClass(IcafeOrder);
+
 @Schema({ timestamps: true })
 export class Tab {
   @Prop({
@@ -76,9 +111,41 @@ export class Tab {
   status: string;
 
   @Prop({
+    type: String,
+    enum: ['pending', 'paid', 'partial', 'failed'],
+    default: 'pending',
+    index: true,
+  })
+  paymentStatus: string;
+
+  @Prop({
+    type: String,
+    enum: ['cash', 'balance', 'card'],
+    required: false,
+  })
+  paymentMethod: string;
+
+  @Prop({
+    type: [IcafeOrderSchema],
+    default: [],
+  })
+  icafeOrders: IcafeOrder[];
+
+  @Prop({
+    type: [TabItemSchema],
+    default: [],
+  })
+  failedItems: TabItem[];
+
+  @Prop({
     type: Date,
   })
   closedAt: Date;
+
+  @Prop({
+    type: Date,
+  })
+  paidAt: Date;
 
   @Prop({
     type: [TabItemSchema],
