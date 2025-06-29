@@ -7,7 +7,7 @@ import { IcafeModule } from '../icafe/icafe.module'; // Import IcafeModule
 @Module({
   imports: [
     NestCacheModule.register({
-      ttl: 5 * 60 * 1000, // 5 minutes in milliseconds
+      ttl: 15 * 60 * 1000, // 15 minutes in milliseconds
       max: 100, // maximum number of items in cache
       isGlobal: true,
     }),

@@ -8,10 +8,8 @@ import { TimeframeEnum } from '../members/dto/member-rankings-query.dto';
 @Injectable()
 export class CacheRefreshService {
   private readonly logger = new Logger(CacheRefreshService.name);
-  // Assuming '/api/v1' is your global prefix. Adjust if necessary.
-  // If you don't have a global prefix or it's configured differently,
-  // these keys might need to be just '/members/rankings?timeframe=...' and '/members'
-  private readonly API_V1_PREFIX = '/api/v1';
+  // CacheInterceptor uses request URL as key without global prefix
+  private readonly API_V1_PREFIX = '';
 
   constructor(
     @Inject(forwardRef(() => IcafeService))
@@ -20,10 +18,10 @@ export class CacheRefreshService {
   ) {}
 
   /**
-   * Refresh cache for member rankings (e.g., monthly) every 4 minutes.
-   * This runs slightly more frequently than the cache TTL (5 minutes) to keep it warm.
+   * Refresh cache for member rankings (e.g., monthly) every 10 minutes.
+   * This runs less frequently than the cache TTL (15 minutes) for better performance.
    */
-  @Cron('*/4 * * * *') // Runs every 4 minutes
+  @Cron('*/10 * * * *') // Runs every 10 minutes
   async refreshMonthlyMemberRankingsCache() {
     const timeframe = TimeframeEnum.MONTH;
     // Construct the cache key exactly as CacheInterceptor would for this request
@@ -36,7 +34,7 @@ export class CacheRefreshService {
       const rankingsData =
         await this.icafeService.calculateMemberRankings(timeframe);
       // Set the data in cache with the same TTL as defined in CacheModule
-      await this.cacheManager.set(cacheKey, rankingsData, 5 * 60);
+      await this.cacheManager.set(cacheKey, rankingsData, 15 * 60);
       this.logger.log(
         `Successfully warmed cache for member rankings (timeframe: ${timeframe})`,
       );
@@ -56,7 +54,7 @@ export class CacheRefreshService {
     try {
       const rankingsData =
         await this.icafeService.calculateMemberRankings(timeframe);
-      await this.cacheManager.set(cacheKey, rankingsData, 5 * 60); // 5 minutes TTL
+      await this.cacheManager.set(cacheKey, rankingsData, 15 * 60); // 15 minutes TTL
       this.logger.log(
         `Successfully refreshed cache for member rankings (timeframe: ${timeframe})`,
       );
@@ -78,16 +76,16 @@ export class CacheRefreshService {
   }
 
   /**
-   * Refresh all members cache every 4 minutes.
+   * Refresh all members cache every 10 minutes.
    */
-  @Cron('*/4 * * * *') // Runs every 4 minutes
+  @Cron('*/10 * * * *') // Runs every 10 minutes
   async refreshAllMembersCache() {
     const cacheKey = `${this.API_V1_PREFIX}/members`;
     this.logger.log(`Warming cache for all members with key: ${cacheKey}`);
 
     try {
       const membersData = await this.icafeService.getAllMembers();
-      await this.cacheManager.set(cacheKey, membersData, 5 * 60);
+      await this.cacheManager.set(cacheKey, membersData, 15 * 60);
       this.logger.log('Successfully warmed cache for all members');
     } catch (error) {
       this.logger.error(

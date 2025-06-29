@@ -178,129 +178,72 @@ export class IcafeService implements OnModuleInit {
       `Calculating member rankings from ${startDate.toISOString()} to ${endDate.toISOString()}`,
     );
 
-    // We'll need to fetch multiple pages potentially
     const memberUsageMap = new Map<string, MemberUsageData>();
-    let currentPage = 1;
-    let hasMorePages = true;
+    const dateStart = startDate.toISOString().split('T')[0];
+    const dateEnd = endDate.toISOString().split('T')[0];
 
-    // First, gather all CHECKOUT events to calculate usage time
-    while (hasMorePages) {
-      const logsResponse = await this.getBillingLogs({
-        dateStart: startDate.toISOString().split('T')[0],
-        dateEnd: endDate.toISOString().split('T')[0],
-        event: 'CHECKOUT',
-        page: currentPage,
-      });
+    // Fetch CHECKOUT and TOPUP events in parallel
+    const [checkoutLogs, topupLogs] = await Promise.all([
+      this.getAllBillingLogsForEvent(dateStart, dateEnd, 'CHECKOUT'),
+      this.getAllBillingLogsForEvent(dateStart, dateEnd, 'TOPUP'),
+    ]);
 
-      if (
-        !logsResponse ||
-        !logsResponse.log_list ||
-        logsResponse.log_list.length === 0
-      ) {
-        hasMorePages = false;
-        continue;
+    // Process CHECKOUT events
+    for (const log of checkoutLogs) {
+      const memberAccount = log.log_member_account;
+      if (!memberAccount) continue;
+
+      const usedSeconds = this.parseTimeToSeconds(log.log_used_secs);
+      if (usedSeconds <= 0) continue;
+
+      // Initialize member data if not exists
+      if (!memberUsageMap.has(memberAccount)) {
+        memberUsageMap.set(memberAccount, {
+          memberAccount,
+          totalSeconds: 0,
+          sessionCount: 0,
+          lastActive: null,
+          totalTopups: 0,
+        });
       }
 
-      // Process each log entry
-      for (const log of logsResponse.log_list) {
-        const memberAccount = log.log_member_account;
-        if (!memberAccount) continue;
+      // Update member stats
+      const memberData = memberUsageMap.get(memberAccount);
+      memberData.totalSeconds += usedSeconds;
+      memberData.sessionCount += 1;
 
-        // Parse the time used
-        const usedSeconds = this.parseTimeToSeconds(log.log_used_secs);
-
-        // Skip if no time was used
-        if (usedSeconds <= 0) continue;
-
-        // Initialize member data if not exists
-        if (!memberUsageMap.has(memberAccount)) {
-          memberUsageMap.set(memberAccount, {
-            memberAccount,
-            totalSeconds: 0,
-            sessionCount: 0,
-            lastActive: null,
-            totalTopups: 0,
-          });
-        }
-
-        // Update member stats
-        const memberData = memberUsageMap.get(memberAccount);
-        memberData.totalSeconds += usedSeconds;
-        memberData.sessionCount += 1;
-
-        // Update last active date if more recent
-        const logDate = new Date(log.log_date_local);
-        if (!memberData.lastActive || logDate > memberData.lastActive) {
-          memberData.lastActive = logDate;
-        }
-      }
-
-      // Check if there are more pages
-      const paging = logsResponse.paging_info;
-      if (paging && parseInt(paging.page) < paging.pages) {
-        currentPage++;
-      } else {
-        hasMorePages = false;
+      // Update last active date if more recent
+      const logDate = new Date(log.log_date_local);
+      if (!memberData.lastActive || logDate > memberData.lastActive) {
+        memberData.lastActive = logDate;
       }
     }
 
-    // Now fetch TOPUP events to add topup amounts
-    hasMorePages = true;
-    currentPage = 1;
+    // Process TOPUP events
+    for (const log of topupLogs) {
+      const memberAccount = log.log_member_account;
+      if (!memberAccount) continue;
 
-    while (hasMorePages) {
-      const logsResponse = await this.getBillingLogs({
-        dateStart: startDate.toISOString().split('T')[0],
-        dateEnd: endDate.toISOString().split('T')[0],
-        event: 'TOPUP',
-        page: currentPage,
-      });
+      const cashAmount = parseFloat(log.log_money) || 0;
+      const cardAmount = parseFloat(log.log_card) || 0;
+      const topupAmount = cashAmount + cardAmount;
 
-      if (
-        !logsResponse ||
-        !logsResponse.log_list ||
-        logsResponse.log_list.length === 0
-      ) {
-        hasMorePages = false;
-        continue;
+      if (topupAmount <= 0) continue;
+
+      // Initialize member data if not exists
+      if (!memberUsageMap.has(memberAccount)) {
+        memberUsageMap.set(memberAccount, {
+          memberAccount,
+          totalSeconds: 0,
+          sessionCount: 0,
+          lastActive: new Date(log.log_date_local),
+          totalTopups: 0,
+        });
       }
 
-      // Process each topup
-      for (const log of logsResponse.log_list) {
-        const memberAccount = log.log_member_account;
-        if (!memberAccount) continue;
-
-        // Calculate total topup (cash + card)
-        const cashAmount = parseFloat(log.log_money) || 0;
-        const cardAmount = parseFloat(log.log_card) || 0;
-        const topupAmount = cashAmount + cardAmount;
-
-        // Skip if no amount was topped up
-        if (topupAmount <= 0) continue;
-
-        // Initialize member data if not exists (they might have topped up but not played)
-        if (!memberUsageMap.has(memberAccount)) {
-          memberUsageMap.set(memberAccount, {
-            memberAccount,
-            totalSeconds: 0,
-            sessionCount: 0,
-            lastActive: new Date(log.log_date_local),
-            totalTopups: 0,
-          });
-        }
-
-        // Update topup amount
-        const memberData = memberUsageMap.get(memberAccount);
-        memberData.totalTopups += topupAmount;
-      }
-
-      // Check if there are more pages
-      const paging = logsResponse.paging_info;
-      if (paging && parseInt(paging.page) < paging.pages) {
-        currentPage++;
-      } else {
-        hasMorePages = false;
-      }
+      // Update topup amount
+      const memberData = memberUsageMap.get(memberAccount);
+      memberData.totalTopups += topupAmount;
     }
 
     // Convert to array and calculate derived values
@@ -320,6 +263,48 @@ export class IcafeService implements OnModuleInit {
       .sort((a, b) => b.totalHours - a.totalHours);
 
     return rankings;
+  }
+
+  // Helper to fetch all billing logs for a specific event type across all pages
+  private async getAllBillingLogsForEvent(
+    dateStart: string,
+    dateEnd: string,
+    event: 'CHECKOUT' | 'TOPUP',
+  ): Promise<any[]> {
+    const allLogs: any[] = [];
+    let currentPage = 1;
+    let hasMorePages = true;
+
+    while (hasMorePages) {
+      const logsResponse = await this.getBillingLogs({
+        dateStart,
+        dateEnd,
+        event,
+        page: currentPage,
+      });
+
+      if (
+        !logsResponse ||
+        !logsResponse.log_list ||
+        logsResponse.log_list.length === 0
+      ) {
+        hasMorePages = false;
+        continue;
+      }
+
+      allLogs.push(...logsResponse.log_list);
+
+      // Check if there are more pages
+      const paging = logsResponse.paging_info;
+      if (paging && parseInt(paging.page) < paging.pages) {
+        currentPage++;
+      } else {
+        hasMorePages = false;
+      }
+    }
+
+    this.logger.log(`Fetched ${allLogs.length} ${event} logs`);
+    return allLogs;
   }
 
   // Helper to parse HH:MM:SS format to seconds
