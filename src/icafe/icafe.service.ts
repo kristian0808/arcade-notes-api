@@ -9,6 +9,7 @@ import {
   NotFoundException,
   Inject,
   forwardRef,
+  OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
@@ -21,13 +22,24 @@ import { BillingLogResponseDto } from './dto/billing-log.dto';
 import { TimeframeEnum } from 'src/members/dto/member-rankings-query.dto';
 import { MemberRankingDto } from 'src/members/dto/member-ranking.dto';
 import { MemberUsageData } from './dto/member-usage-data.dto';
+import { 
+  IcafeOrderDto, 
+  IcafeOrderResponseDto, 
+  IcafeProductDto, 
+  IcafeProductListResponseDto 
+} from './dto/icafe-order.dto';
 
 @Injectable()
-export class IcafeService {
+export class IcafeService implements OnModuleInit {
   private readonly logger = new Logger(IcafeService.name);
   private readonly baseUrl = 'https://api.icafecloud.com/api/v2/cafe';
   private readonly cafeId: string;
   private readonly authToken: string;
+  
+  // Product cache with TTL
+  private productCache: Map<string, IcafeProductDto> = new Map();
+  private productCacheLastUpdate: Date | null = null;
+  private readonly CACHE_TTL_HOURS = 1; // Cache for 1 hour
 
   constructor(
     private readonly httpService: HttpService,
@@ -759,6 +771,171 @@ export class IcafeService {
           );
           throw new HttpException(
             'Failed to fetch products from iCafeCloud',
+            error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+          );
+        }),
+      ),
+    );
+  }
+
+  /**
+   * Get product list from ICafe with caching for order processing
+   */
+  async getProductList(): Promise<IcafeProductListResponseDto> {
+    const url = `${this.baseUrl}/${this.cafeId}/orders/action/productList`;
+    this.logger.log('Fetching product list from ICafe for order processing');
+
+    const requestConfig = this.getRequestConfig();
+
+    return firstValueFrom(
+      this.httpService.get(url, requestConfig).pipe(
+        map((response) => {
+          if (response.data?.code === 200 && response.data?.data) {
+            this.logger.log(`Successfully fetched ${response.data.data.product_list?.length || 0} products from ICafe`);
+            return response.data;
+          }
+          throw new Error('Invalid product list response structure');
+        }),
+        catchError((error: AxiosError) => {
+          this.logger.error(
+            `Error fetching product list: ${error.message}`,
+            error.stack,
+          );
+          throw new HttpException(
+            'Failed to fetch product list from iCafeCloud',
+            error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+          );
+        }),
+      ),
+    );
+  }
+
+  /**
+   * Refresh product cache from ICafe API
+   */
+  async refreshProductCache(): Promise<void> {
+    this.logger.log('Refreshing product cache from ICafe');
+    
+    try {
+      const productListResponse = await this.getProductList();
+      
+      // Clear existing cache
+      this.productCache.clear();
+      
+      // Populate cache with product name as key and full product data as value
+      if (productListResponse.data?.product_list) {
+        for (const product of productListResponse.data.product_list) {
+          this.productCache.set(product.product_name.toLowerCase(), product);
+        }
+      }
+      
+      this.productCacheLastUpdate = new Date();
+      this.logger.log(`Product cache refreshed with ${this.productCache.size} products`);
+    } catch (error) {
+      this.logger.error(`Failed to refresh product cache: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get product by name from cache (case-insensitive)
+   */
+  async findProductByName(productName: string): Promise<IcafeProductDto | null> {
+    await this.ensureProductCacheReady();
+    
+    const normalizedName = productName.toLowerCase();
+    const product = this.productCache.get(normalizedName);
+    
+    if (!product) {
+      this.logger.warn(`Product not found in cache: ${productName}`);
+      return null;
+    }
+    
+    return product;
+  }
+
+  /**
+   * Get ICafe product ID by product name
+   */
+  async getProductIdByName(productName: string): Promise<string | null> {
+    const product = await this.findProductByName(productName);
+    return product?.product_id || null;
+  }
+
+  /**
+   * Ensure product cache is ready and up-to-date
+   */
+  private async ensureProductCacheReady(): Promise<void> {
+    const now = new Date();
+    
+    // Check if cache needs refresh
+    if (!this.productCacheLastUpdate || 
+        (now.getTime() - this.productCacheLastUpdate.getTime()) > (this.CACHE_TTL_HOURS * 60 * 60 * 1000)) {
+      await this.refreshProductCache();
+    }
+  }
+
+  /**
+   * Warm up the product cache on service initialization
+   */
+  async onModuleInit(): Promise<void> {
+    try {
+      await this.refreshProductCache();
+      this.logger.log('Product cache warmed up on service initialization');
+    } catch (error) {
+      this.logger.warn(`Failed to warm up product cache: ${error.message}`);
+    }
+  }
+
+  /**
+   * Create order in ICafe system
+   */
+  async createOrder(orderData: IcafeOrderDto): Promise<IcafeOrderResponseDto> {
+    const url = `${this.baseUrl}/${this.cafeId}/orders`;
+    this.logger.log(`Creating ICafe order for member ${orderData.order_member_account}`);
+
+    const requestConfig = {
+      ...this.getRequestConfig(),
+      headers: {
+        ...this.getRequestConfig().headers,
+        'Content-Type': 'application/json',
+      },
+    };
+
+    return firstValueFrom(
+      this.httpService.post(url, orderData, requestConfig).pipe(
+        map((response) => {
+          if (response.data?.code === 200) {
+            this.logger.log(`ICafe order created successfully: ${response.data.data?.order_no}`);
+            return response.data;
+          }
+          throw new Error(`ICafe order creation failed: ${response.data?.message || 'Unknown error'}`);
+        }),
+        catchError((error: AxiosError) => {
+          this.logger.error(
+            `Error creating ICafe order: ${error.message}`,
+            error.stack,
+          );
+          
+          // Handle specific ICafe error codes
+          if (error.response?.data) {
+            const errorData = error.response.data as any;
+            if (errorData.code === 400) {
+              throw new HttpException(
+                `ICafe order validation failed: ${errorData.message}`,
+                HttpStatus.BAD_REQUEST,
+              );
+            }
+            if (errorData.code === 402) {
+              throw new HttpException(
+                'Insufficient member balance for this order',
+                HttpStatus.PAYMENT_REQUIRED,
+              );
+            }
+          }
+          
+          throw new HttpException(
+            'Failed to create order in iCafeCloud',
             error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
           );
         }),
