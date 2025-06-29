@@ -21,6 +21,8 @@ import { AddTabItemDto } from './dto/add-tab-item.dto';
 import { UpdateTabItemQuantityDto } from './dto/update-tab-item-quantity.dto';
 import { TabResponseDto } from './dto/tab-response.dto';
 import { TabItem } from 'src/notes/schemas/tab.schema';
+import { ProcessPaymentDto } from './dto/process-payment.dto';
+import { PaymentResponseDto } from './dto/payment-response.dto';
 
 @Controller('tabs') // Removed 'api/' prefix
 export class TabsController {
@@ -98,6 +100,39 @@ export class TabsController {
   async closeTab(@Param('id') id: string): Promise<TabResponseDto> {
     this.logger.log(`Closing tab with ID: ${id}`);
     return this.tabsService.closeTab(id);
+  }
+
+  @Post(':id/payment')
+  @HttpCode(HttpStatus.OK)
+  async processPayment(
+    @Param('id') id: string,
+    @Body() processPaymentDto: ProcessPaymentDto,
+  ): Promise<PaymentResponseDto> {
+    this.logger.log(`Processing payment for tab ${id} with method: ${processPaymentDto.paymentMethod}`);
+    
+    try {
+      // Use the recovery method as default to handle partial failures
+      return await this.tabsService.processTabPaymentWithRecovery(id, processPaymentDto);
+    } catch (error) {
+      this.logger.error(`Payment processing failed for tab ${id}: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  @Post(':id/payment/retry')
+  @HttpCode(HttpStatus.OK)
+  async retryFailedPayment(
+    @Param('id') id: string,
+    @Body() processPaymentDto: ProcessPaymentDto,
+  ): Promise<PaymentResponseDto> {
+    this.logger.log(`Retrying failed payment for tab ${id} with method: ${processPaymentDto.paymentMethod}`);
+    
+    try {
+      return await this.tabsService.retryFailedItems(id, processPaymentDto);
+    } catch (error) {
+      this.logger.error(`Payment retry failed for tab ${id}: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   @Get()
