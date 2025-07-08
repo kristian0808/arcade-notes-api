@@ -41,20 +41,30 @@ export class DashboardGateway
       `Client connected: ${client.id}. Total clients: ${this.clientCount}`,
     );
 
+    // TEMPORARY: Commented out to prevent API storm during connection
+    // TODO: Re-enable with proper caching/throttling later
+    
     // Send immediate update to the new client
-    this.handlePcUpdates().catch((err) =>
-      this.logger.error('Error sending initial PC updates', err),
-    );
+    // this.handlePcUpdates().catch((err) =>
+    //   this.logger.error('Error sending initial PC updates', err),
+    // );
 
     // Also send initial member updates to the new client
-    this.handleMemberUpdates().catch((err) =>
-      this.logger.error('Error sending initial member updates', err),
-    );
+    // this.handleMemberUpdates().catch((err) =>
+    //   this.logger.error('Error sending initial member updates', err),
+    // );
 
     // Send initial active tab data to the new client
-    this.handleActiveTabsUpdate().catch((err) =>
-      this.logger.error('Error sending initial active tabs update', err),
-    );
+    // this.handleActiveTabsUpdate().catch((err) =>
+    //   this.logger.error('Error sending initial active tabs update', err),
+    // );
+
+    // Send empty data instead to prevent connection storm
+    client.emit('pc-updates', []);
+    client.emit('member-updates', []);
+    client.emit('active-tabs', []);
+    
+    this.logger.log('Sent empty initial data to prevent API storm');
   }
 
   handleDisconnect(client: Socket) {

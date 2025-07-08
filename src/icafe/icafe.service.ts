@@ -69,6 +69,7 @@ export class IcafeService implements OnModuleInit {
         Authorization: `Bearer ${this.authToken}`,
         Accept: 'application/json',
       },
+      timeout: 30000,
     };
   }
 
